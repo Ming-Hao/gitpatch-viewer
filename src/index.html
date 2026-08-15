@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Patch Viewer</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">Patch Viewer</div>
+
+    <div class="toolbar-group">
+      <div class="segmented" id="view-toggle" role="group" aria-label="View mode">
+        <button type="button" data-mode="unified" class="is-active">Unified</button>
+        <button type="button" data-mode="split">Side by side</button>
+      </div>
+
+      <button type="button" class="btn" id="theme-toggle" title="Toggle theme">Theme</button>
+      <label class="btn" for="file-input">Open patch</label>
+      <button type="button" class="btn" id="reset-btn" hidden>Clear</button>
+    </div>
+  </header>
+
+  <input type="file" id="file-input" accept=".patch,.diff,text/plain" hidden>
+
+  <div class="summary" id="summary" hidden></div>
+
+  <main id="main">
+    <section class="intro" id="intro">
+      <div class="dropzone" id="dropzone">
+        <p class="dropzone-title">Drop a <code>.patch</code> file here</p>
+        <p class="dropzone-sub">or <label class="link" for="file-input">choose a file</label></p>
+      </div>
+
+      <details class="paste">
+        <summary>Paste patch text instead</summary>
+        <textarea id="paste-area" spellcheck="false"
+                  placeholder="diff --git a/src/app.js b/src/app.js&#10;index 83db48f..f735c4e 100644&#10;--- a/src/app.js&#10;+++ b/src/app.js&#10;@@ -12,3 +12,3 @@"></textarea>
+        <button type="button" class="btn" id="paste-btn">Render</button>
+      </details>
+    </section>
+
+    <div class="error" id="error" hidden></div>
+    <div id="files"></div>
+  </main>
+
+  <div class="drop-overlay" id="drop-overlay" hidden><span>Drop to open</span></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

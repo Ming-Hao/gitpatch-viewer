@@ -1,0 +1,19 @@
+{
+  "name": "gitpatch-viewer",
+  "version": "1.0.0",
+  "description": "Offline viewer for unified diff patches",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/app.js --bundle --minify --outdir=dist && cp src/index.html dist/",
+    "dev": "esbuild src/app.js --bundle --outdir=dist --watch",
+    "deploy": "npm run build && npx wrangler deploy"
+  },
+  "keywords": [],
+  "dependencies": {
+    "diff": "^9.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

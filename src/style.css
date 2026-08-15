@@ -1,0 +1,434 @@
+/* ---------------------------------------------------------------------------
+   Theme tokens.
+
+   Light values live on :root so every colour has a definition outside any
+   media query. The dark values are declared twice — once under the system
+   preference and once under an explicit [data-theme="dark"] — so the toggle
+   wins in both directions. THE TWO DARK BLOCKS MUST BE KEPT IDENTICAL.
+
+   The two themes deliberately run different toolbar palettes: light is a grey
+   bar with blue controls, dark is a near-black bar with an orange rule and
+   green controls.
+
+   --add-num-bg and --del-num-bg use 0.22 rather than 0.3 because at 0.3 the
+   muted line-number text only reaches 4.00:1 against the tint, short of the
+   4.5:1 WCAG AA minimum.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: #ffffff;
+  --bg-inset: #f6f8fa;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --border: #d1d9e0;
+
+  --add-bg: #e6ffec;
+  --add-num-bg: #ccffd8;
+  --add-seg-bg: #abf2bc;
+  --del-bg: #ffebe9;
+  --del-num-bg: #ffd7d5;
+  --del-seg-bg: #ff9ea8;
+
+  --hunk-fg: #59636e;
+  --hunk-bg: #f6f8fa;
+  --ws-bg: rgba(31, 35, 40, 0.22);
+
+  --accent: #0969da;
+  --danger: #cf222e;
+
+  /* The toolbar is its own surface, separate from --bg-inset, which is still
+     used by file headers and hunk headers inside the content area. */
+  --toolbar-bg: #424a53;
+  --toolbar-fg: #ffffff;
+
+  /* Toolbar rule. Independent of --accent so the divider and the selected
+     state can be tuned separately. */
+  --rule: #58a6ff;
+
+  --btn-bg: #ddf4ff;
+  --btn-fg: #0a3069;
+  --btn-border: #54aeff;
+  --btn-muted: #0969da;
+  --btn-on-bg: #0969da;
+  --btn-on-fg: #ffffff;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --row-height: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117;
+    --bg-inset: #161b22;
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --border: #30363d;
+
+    --add-bg: rgba(46, 160, 67, 0.15);
+    --add-num-bg: rgba(46, 160, 67, 0.22);
+    --add-seg-bg: rgba(46, 160, 67, 0.4);
+    --del-bg: rgba(248, 81, 73, 0.15);
+    --del-num-bg: rgba(248, 81, 73, 0.22);
+    --del-seg-bg: rgba(248, 81, 73, 0.4);
+
+    --hunk-fg: #8b949e;
+    --hunk-bg: #161b22;
+    --ws-bg: rgba(230, 237, 243, 0.25);
+
+    --accent: #4ade80;
+    --danger: #f85149;
+
+    --toolbar-bg: #010409;
+    --toolbar-fg: #ffffff;
+    --rule: #f97316;
+
+    --btn-bg: #dcfce7;
+    --btn-fg: #14532d;
+    --btn-border: #4ade80;
+    --btn-muted: #14532d;
+    --btn-on-bg: #15803d;
+    --btn-on-fg: #ffffff;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-inset: #161b22;
+  --fg: #e6edf3;
+  --fg-muted: #8b949e;
+  --border: #30363d;
+
+  --add-bg: rgba(46, 160, 67, 0.15);
+  --add-num-bg: rgba(46, 160, 67, 0.22);
+  --add-seg-bg: rgba(46, 160, 67, 0.4);
+  --del-bg: rgba(248, 81, 73, 0.15);
+  --del-num-bg: rgba(248, 81, 73, 0.22);
+  --del-seg-bg: rgba(248, 81, 73, 0.4);
+
+  --hunk-fg: #8b949e;
+  --hunk-bg: #161b22;
+  --ws-bg: rgba(230, 237, 243, 0.25);
+
+  --accent: #4ade80;
+  --danger: #f85149;
+
+  --toolbar-bg: #010409;
+  --toolbar-fg: #ffffff;
+  --rule: #f97316;
+
+  --btn-bg: #dcfce7;
+  --btn-fg: #14532d;
+  --btn-border: #4ade80;
+  --btn-muted: #14532d;
+  --btn-on-bg: #15803d;
+  --btn-on-fg: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+/* Author-level `display` declarations outrank the UA stylesheet's
+   `[hidden] { display: none }`, so elements toggled via the `hidden` attribute
+   need this to actually disappear. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+
+/* ---------------------------------------------------------------- toolbar */
+
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--toolbar-bg);
+  color: var(--toolbar-fg);
+  border-bottom: 3px solid var(--rule);
+}
+
+.brand { font-weight: 600; }
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The UA stylesheet's `font` shorthand on <button> resets family and
+   line-height, so a <button class="btn"> and a <label class="btn"> would
+   otherwise render at different sizes. Both are inherited back explicitly. */
+.btn {
+  display: inline-block;
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: inherit;
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.btn:hover { border-color: var(--accent); }
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--btn-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented button {
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: inherit;
+  color: var(--btn-muted);
+  background: var(--btn-bg);
+  border: 0;
+  cursor: pointer;
+}
+
+.segmented button + button { border-left: 1px solid var(--btn-border); }
+.segmented button.is-active { color: var(--btn-on-fg); background: var(--btn-on-bg); }
+
+/* ---------------------------------------------------------------- summary */
+
+.summary {
+  display: flex;
+  gap: 16px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.summary .plus { color: #1a7f37; font-weight: 600; }
+.summary .minus { color: var(--danger); font-weight: 600; }
+:root[data-theme="dark"] .summary .plus { color: #3fb950; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .summary .plus { color: #3fb950; }
+}
+
+/* ------------------------------------------------------------------ intro */
+
+main { padding: 16px; }
+
+.intro { max-width: 720px; margin: 40px auto; }
+
+.dropzone {
+  padding: 48px 24px;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+}
+
+.dropzone-title { margin: 0 0 8px; font-size: 16px; }
+.dropzone-sub { margin: 0; color: var(--fg-muted); }
+.dropzone code { font-family: var(--mono); font-size: 13px; }
+
+.link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+
+.paste { margin-top: 20px; }
+.paste summary { cursor: pointer; color: var(--fg-muted); }
+
+.paste textarea {
+  display: block;
+  width: 100%;
+  height: 180px;
+  margin: 12px 0;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.error {
+  max-width: 720px;
+  margin: 16px auto;
+  padding: 12px 16px;
+  color: var(--danger);
+  background: var(--del-bg);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+}
+
+.error pre {
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+/* ------------------------------------------------------------- file block */
+
+.file {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.file-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-inset);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+
+.file.is-collapsed .file-head { border-bottom: 0; }
+.file.is-collapsed .file-body { display: none; }
+
+.twisty {
+  width: 16px;
+  color: var(--fg-muted);
+  text-align: center;
+  transition: transform 0.1s;
+}
+
+.file.is-collapsed .twisty { transform: rotate(-90deg); }
+
+.badge {
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.path .arrow { color: var(--fg-muted); }
+
+.stat { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.stat .plus { color: #1a7f37; }
+.stat .minus { color: var(--danger); }
+:root[data-theme="dark"] .stat .plus { color: #3fb950; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stat .plus { color: #3fb950; }
+}
+
+.file-note {
+  padding: 16px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.file-note code { font-family: var(--mono); }
+
+/* ------------------------------------------------------------- diff table */
+
+/* The wrapper is the only horizontal scroll container, so in side-by-side
+   mode both panes scroll together and rows stay aligned. */
+.diff-scroll { overflow-x: auto; }
+
+table.diff {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: var(--row-height);
+  tab-size: 4;
+}
+
+table.diff td {
+  padding: 0;
+  vertical-align: top;
+}
+
+td.num {
+  width: 1%;
+  min-width: 44px;
+  padding: 0 10px;
+  color: var(--fg-muted);
+  text-align: right;
+  white-space: nowrap;
+  user-select: none;
+  border-right: 1px solid var(--border);
+}
+
+td.code {
+  padding: 0 10px 0 6px;
+  white-space: pre;
+}
+
+tr.hunk td {
+  padding: 4px 10px;
+  color: var(--hunk-fg);
+  background: var(--hunk-bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+tr:first-child.hunk td { border-top: 0; }
+
+.code.add, td.add { background: var(--add-bg); }
+.code.del, td.del { background: var(--del-bg); }
+.num.add { background: var(--add-num-bg); }
+.num.del { background: var(--del-num-bg); }
+.code.filler { background: var(--bg-inset); }
+
+/* Word-level highlight inside a changed line. */
+.seg { border-radius: 2px; }
+.code.add .seg { background: var(--add-seg-bg); }
+.code.del .seg { background: var(--del-seg-bg); }
+
+/* Whitespace inside a changed segment, so indent-only edits stay visible. */
+.ws { background: var(--ws-bg); border-radius: 2px; }
+
+.nonewline {
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* Split view keeps a divider between the two panes. */
+table.diff.split td.num.right { border-left: 1px solid var(--border); }
+
+/* ----------------------------------------------------------- drop overlay */
+
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  /* Kept out of hit-testing so the overlay never becomes a drag target itself,
+     which would fire extra dragenter/dragleave pairs and desync the counter
+     that decides when to hide it. */
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border: 3px dashed var(--accent);
+}

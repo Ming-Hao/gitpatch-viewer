@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.wrangler/
+.mockup/
+.playwright/
+.playwright-cli/
+.claude/
+.DS_Store

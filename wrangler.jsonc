@@ -1,0 +1,10 @@
+{
+  // Assets-only Worker: no `main` entry point, so nothing but static files is
+  // served. Static asset requests are free and do not count against the
+  // Workers daily request limit.
+  "name": "gitpatch-viewer",
+  "compatibility_date": "2026-08-15",
+  "assets": {
+    "directory": "./dist"
+  }
+}
