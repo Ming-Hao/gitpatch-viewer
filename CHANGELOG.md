@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-16
+
 ### Added
 
 - A coloured rule down the left of each file row, shared by files in the same directory; hovering a row thickens its own directory's rules and fades the others back.
