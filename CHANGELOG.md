@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - The build workflow now declares read-only repository permissions, so its token no longer inherits whatever the repository defaults grant.
+- Deployed responses now carry a content security policy that permits only same-origin scripts and styles, along with `X-Content-Type-Options` and `Referrer-Policy`.
 
 ## [1.1.0] - 2026-08-16
 

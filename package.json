@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/app.js --bundle --minify --outdir=dist && cp src/index.html dist/",
+    "build": "esbuild src/app.js --bundle --minify --outdir=dist && cp src/index.html src/_headers dist/",
     "dev": "esbuild src/app.js --bundle --outdir=dist --watch",
     "diff": "mkdir -p .fixtures && git diff HEAD > .fixtures/working.diff && echo 'wrote .fixtures/working.diff'",
     "deploy": "npm run build && npx wrangler deploy"

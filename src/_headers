@@ -1,0 +1,10 @@
+# Response headers for the assets-only Worker. Cloudflare reads this file from
+# the deployed asset directory, so the build script has to copy it into dist/;
+# it is kept here in src/ to stay under version control.
+#
+# The strict script-src and style-src work because index.html has no inline
+# <script> or <style>: both are external files served from the same origin.
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
