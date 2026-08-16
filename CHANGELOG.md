@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A coloured rule down the left of each file row, shared by files in the same directory; hovering a row thickens its own directory's rules and fades the others back.
+- A bar behind each row sized by that file's share of the largest change in the patch, on a linear or logarithmic scale.
+- Controls in the summary bar for the bar scale and the hover fade, each with a tooltip describing the current setting and the effect of switching, and each remembered between visits.
+
+### Changed
+
+- A loaded patch now opens as a list of file rows; the diff is built only when a row is opened, and discarded when it is closed.
+- Files are ordered by directory, then by change kind within each directory.
+
+### Fixed
+
+- The paste box now has a visible border; the previous one fell below the minimum contrast against its fill.
+
 ## [1.0.0] - 2026-08-15
 
 ### Added

@@ -28,6 +28,48 @@ const KIND_LABEL = {
   modify: 'modified',
 };
 
+/**
+ * Order files take within a directory. Kinds absent from this list sort last,
+ * so an unrecognised kind degrades to "at the end" rather than to a crash.
+ */
+const KIND_ORDER = ['modify', 'add', 'delete', 'rename', 'copy', 'mode', 'binary'];
+
+/**
+ * How many group colours the stylesheet defines as --g0..--g5. Directories are
+ * numbered in encounter order and take a slot modulo this, so neighbouring
+ * directories never land on the same colour.
+ */
+const GROUP_SLOTS = 6;
+
+/**
+ * Tooltip copy for the two display controls, keyed by the state in effect.
+ * Each entry says what the current setting does, then what pressing the control
+ * would do — the second half never just names the other mode, because a name
+ * alone leaves the reader to guess the effect.
+ */
+const CONTROL_COPY = {
+  scale: {
+    linear: {
+      now: 'Bar length is proportional to the number of lines changed.',
+      then: 'Click for a logarithmic scale, which keeps small files visible next to very large ones.',
+    },
+    log: {
+      now: 'Bar length grows logarithmically, so files orders of magnitude apart all stay readable.',
+      then: 'Click for a linear scale, where length is proportional to the number of lines changed.',
+    },
+  },
+  focus: {
+    on: {
+      now: 'Hovering a row fades the other directories back.',
+      then: 'Click to keep every row at full strength on hover.',
+    },
+    off: {
+      now: 'Every row keeps its full strength when another is hovered.',
+      then: 'Click to fade directories other than the one under the pointer.',
+    },
+  },
+};
+
 /* ===========================================================================
    State
    =========================================================================== */
@@ -35,7 +77,7 @@ const KIND_LABEL = {
 /** Parsed patch, or null when nothing is loaded. Never persisted. */
 let model = null;
 
-let prefs = { mode: 'unified', theme: null };
+let prefs = { mode: 'unified', theme: null, focus: true, scale: 'linear' };
 
 /* ===========================================================================
    Utilities
@@ -45,6 +87,22 @@ let prefs = { mode: 'unified', theme: null };
 function cleanPath(path) {
   if (!path || path === '/dev/null') return null;
   return path.replace(/^[abciwo12]\//, '');
+}
+
+/** Directory portion of a path, trailing slash included; '' at the root. */
+function dirOf(path) {
+  const cut = path.lastIndexOf('/');
+  return cut === -1 ? '' : path.slice(0, cut + 1);
+}
+
+/** Filename portion of a path. */
+function nameOf(path) {
+  return path.slice(dirOf(path).length);
+}
+
+/** The path a file is filed under: its new path, or its old one once deleted. */
+function sortPath(file) {
+  return file.newPath || file.oldPath || '';
 }
 
 /**
@@ -93,9 +151,47 @@ function buildModel(text) {
   // empty result never signals "not a patch". An entry with neither hunks nor
   // paths carries nothing; the hunkless kinds that do mean something (mode,
   // rename, copy, binary) all still carry paths.
-  return parsePatch(text)
+  const files = parsePatch(text)
     .map(buildFile)
     .filter((file) => file.hunks.length || file.oldPath || file.newPath);
+
+  return groupByDirectory(files);
+}
+
+/**
+ * Returns the files reordered for display and stamped with the group index the
+ * list renders from. Directories keep the order the patch introduced them in —
+ * git already emits them sorted, and honouring that order keeps the colours
+ * stable for a given patch — while the files inside one directory are reordered
+ * by kind so modifications lead and renames and binaries trail.
+ *
+ * The index is assigned here rather than at render time because both the colour
+ * and the hover grouping read it, and it must not change between renders.
+ */
+function groupByDirectory(files) {
+  const groups = new Map();
+  for (const file of files) {
+    const dir = dirOf(sortPath(file));
+    if (!groups.has(dir)) groups.set(dir, []);
+    groups.get(dir).push(file);
+  }
+
+  const rank = (kind) => {
+    const index = KIND_ORDER.indexOf(kind);
+    return index === -1 ? KIND_ORDER.length : index;
+  };
+
+  const ordered = [];
+  let group = 0;
+  for (const bucket of groups.values()) {
+    bucket.sort((a, b) => rank(a.kind) - rank(b.kind) || sortPath(a).localeCompare(sortPath(b)));
+    for (const file of bucket) {
+      file.group = group;
+      ordered.push(file);
+    }
+    group++;
+  }
+  return ordered;
 }
 
 function buildFile(file) {
@@ -233,7 +329,6 @@ function pairRun(removed, added) {
       }
     }
   }
-
   return rows;
 }
 
@@ -273,23 +368,162 @@ function attachSegments(left, right) {
    Layer 5 — rendering
    =========================================================================== */
 
+/**
+ * Paths whose rows are currently expanded. Kept outside the DOM so switching
+ * between unified and side-by-side can rebuild the open bodies in the new mode
+ * instead of collapsing everything.
+ */
+const expanded = new Set();
+
+/** The largest single-file change in the patch, the full width of a row's bar. */
+let maxChange = 0;
+
 function render() {
   const container = document.getElementById('files');
   container.textContent = '';
 
   if (!model) return;
 
+  maxChange = model.reduce((max, file) => Math.max(max, file.additions + file.deletions), 0);
+
+  const list = document.createElement('div');
+  list.className = 'file-list';
+
   for (const file of model) {
-    container.appendChild(renderFile(file));
+    const row = renderRow(file);
+    list.appendChild(row);
+    // Rebuilding rather than preserving the old body is what makes a mode
+    // switch take effect on files the reader already had open. The class has to
+    // be restored alongside it, or the row keeps a collapsed twisty and the
+    // next click expands a file that is already expanded.
+    if (expanded.has(sortPath(file))) {
+      row.classList.add('is-open');
+      row.after(renderBody(file));
+    }
   }
+
+  wireGroupHover(list);
+  container.appendChild(list);
 }
 
-function renderFile(file) {
-  const section = document.createElement('section');
-  section.className = 'file';
+/**
+ * One file as a single row. The diff itself is deliberately absent: a file that
+ * is never opened costs one row, which is what keeps a patch of a few hundred
+ * files from building a DOM the browser struggles to tear down again.
+ */
+function renderRow(file) {
+  const row = document.createElement('div');
+  row.className = 'file-row';
+  // Pointing at the token rather than a literal colour lets a theme change
+  // repaint every rule without rebuilding the list.
+  row.style.setProperty('--group', `var(--g${file.group % GROUP_SLOTS})`);
+  row.dataset.group = String(file.group);
+  // Lets applyScale() re-measure the bar without going back to the model.
+  row.dataset.total = String(file.additions + file.deletions);
 
-  section.appendChild(renderFileHead(file));
+  row.appendChild(renderRowLayers(file));
 
+  const twisty = document.createElement('span');
+  twisty.className = 'twisty';
+  twisty.textContent = '▸';
+  row.appendChild(twisty);
+
+  const kind = document.createElement('span');
+  kind.className = 'kind';
+  kind.textContent = KIND_LABEL[file.kind];
+  row.appendChild(kind);
+
+  row.appendChild(renderRowPath(file));
+
+  const stat = document.createElement('span');
+  stat.className = 'stat';
+  stat.append(
+    spanWith('plus', `+${file.additions}`),
+    ' ',
+    spanWith('minus', `−${file.deletions}`),
+  );
+  row.appendChild(stat);
+
+  row.addEventListener('click', () => toggleFile(row, file));
+  return row;
+}
+
+/**
+ * A row's bar as a percentage of the row's width.
+ *
+ * Both scales share the same full mark — the largest change in the patch — so
+ * the longest bar is full either way and the two modes agree at that end. The
+ * logarithmic one exists because a single generated or deleted file of several
+ * thousand lines drives every other bar below a pixel: on a linear scale a
+ * 24-line change next to a 14000-line one is 0.16% wide, which is nothing.
+ *
+ * log1p rather than log, so a file with no line changes (a rename, a binary)
+ * lands on zero instead of negative infinity.
+ */
+function barWidth(total) {
+  if (!total || !maxChange) return 0;
+  if (prefs.scale === 'log') return (Math.log1p(total) / Math.log1p(maxChange)) * 100;
+  return (total / maxChange) * 100;
+}
+
+/**
+ * The bar and the hover veil, wrapped in one negatively stacked container.
+ * Because the wrapper carries the z-index, the two layers stack against each
+ * other inside it and both stay behind the row's text.
+ */
+function renderRowLayers(file) {
+  const layers = document.createElement('span');
+  layers.className = 'layers';
+
+  const total = file.additions + file.deletions;
+  const fill = document.createElement('span');
+  fill.className = 'fill';
+  fill.style.width = `${barWidth(total)}%`;
+
+  // Both sides are flexed by their line counts, so the split within the bar
+  // matches the split within the file.
+  if (file.additions) {
+    const add = document.createElement('span');
+    add.className = 'add';
+    add.style.flex = String(file.additions);
+    fill.appendChild(add);
+  }
+  if (file.deletions) {
+    const del = document.createElement('span');
+    del.className = 'del';
+    del.style.flex = String(file.deletions);
+    fill.appendChild(del);
+  }
+
+  layers.appendChild(fill);
+  layers.appendChild(spanWith('veil', ''));
+  return layers;
+}
+
+/** Directory dimmed, filename at full strength, so the name stays findable. */
+function renderRowPath(file) {
+  const path = document.createElement('span');
+  path.className = 'path';
+
+  if (file.kind === 'rename' || file.kind === 'copy') {
+    const from = file.oldPath || '';
+    const to = file.newPath || '';
+    path.append(
+      spanWith('dir', dirOf(to)),
+      nameOf(from),
+      spanWith('arrow', ' → '),
+      nameOf(to),
+    );
+    return path;
+  }
+
+  const full = sortPath(file) || '(unknown)';
+  path.append(spanWith('dir', dirOf(full)), nameOf(full));
+  return path;
+}
+
+/** Builds the diff for one file. Only ever called from a click. */
+function renderBody(file) {
   const body = document.createElement('div');
   body.className = 'file-body';
 
@@ -304,47 +538,48 @@ function renderFile(file) {
     body.appendChild(renderFileNote(file));
   }
 
-  section.appendChild(body);
-  return section;
+  return body;
 }
 
-function renderFileHead(file) {
-  const head = document.createElement('header');
-  head.className = 'file-head';
+/**
+ * Expands or collapses one row. Collapsing discards the diff rather than hiding
+ * it, so opening many files in turn does not accumulate DOM.
+ */
+function toggleFile(row, file) {
+  const key = sortPath(file);
+  const body = row.nextElementSibling;
 
-  const twisty = document.createElement('span');
-  twisty.className = 'twisty';
-  twisty.textContent = '▾';
-  head.appendChild(twisty);
-
-  const badge = document.createElement('span');
-  badge.className = 'badge';
-  badge.textContent = KIND_LABEL[file.kind];
-  head.appendChild(badge);
-
-  const path = document.createElement('span');
-  path.className = 'path';
-  if (file.kind === 'rename' || file.kind === 'copy') {
-    path.append(file.oldPath || '', spanWith('arrow', ' → '), file.newPath || '');
-  } else {
-    path.textContent = file.newPath || file.oldPath || '(unknown)';
+  if (expanded.has(key)) {
+    expanded.delete(key);
+    row.classList.remove('is-open');
+    if (body && body.classList.contains('file-body')) body.remove();
+    return;
   }
-  head.appendChild(path);
 
-  const stat = document.createElement('span');
-  stat.className = 'stat';
-  stat.append(
-    spanWith('plus', `+${file.additions}`),
-    ' ',
-    spanWith('minus', `−${file.deletions}`),
-  );
-  head.appendChild(stat);
+  expanded.add(key);
+  row.classList.add('is-open');
+  row.after(renderBody(file));
+}
 
-  head.addEventListener('click', () => {
-    head.parentElement.classList.toggle('is-collapsed');
+/**
+ * Marks every row sharing the pointed-at row's directory, which the stylesheet
+ * uses to thicken that group's rules and fade the rest. One delegated pair of
+ * listeners rather than two per row, which matters at a few hundred files.
+ */
+function wireGroupHover(list) {
+  const rows = () => list.querySelectorAll('.file-row');
+
+  list.addEventListener('mouseover', (event) => {
+    const target = event.target.closest('.file-row');
+    if (!target) return;
+    for (const row of rows()) {
+      row.classList.toggle('in-group', row.dataset.group === target.dataset.group);
+    }
   });
 
-  return head;
+  list.addEventListener('mouseleave', () => {
+    for (const row of rows()) row.classList.remove('in-group');
+  });
 }
 
 /** Files with no hunks still carry meaning: explain them instead of a blank. */
@@ -515,6 +750,10 @@ function load(text) {
   errorBox.hidden = true;
   errorBox.textContent = '';
 
+  // Paths from the previous patch mean nothing in this one, and leaving them
+  // would silently expand whichever files happened to share a path.
+  expanded.clear();
+
   // TEMPORARY: measuring where load time goes. Remove once decided.
   const t0 = performance.now();
 
@@ -561,6 +800,7 @@ function load(text) {
 
 function reset() {
   model = null;
+  expanded.clear();
   document.getElementById('intro').hidden = false;
   document.getElementById('reset-btn').hidden = true;
   document.getElementById('error').hidden = true;
@@ -582,18 +822,21 @@ function showError(message, detail) {
 
 function showSummary() {
   const box = document.getElementById('summary');
+  const totals = document.getElementById('summary-totals');
 
   if (!model) {
     box.hidden = true;
-    box.textContent = '';
+    totals.textContent = '';
     return;
   }
 
   const additions = model.reduce((sum, file) => sum + file.additions, 0);
   const deletions = model.reduce((sum, file) => sum + file.deletions, 0);
 
-  box.textContent = '';
-  box.append(
+  // Only the totals span is rewritten. Clearing the bar itself would take the
+  // controls that sit alongside them with it.
+  totals.textContent = '';
+  totals.append(
     `${model.length} file${model.length === 1 ? '' : 's'} changed`,
     spanWith('plus', `+${additions}`),
     spanWith('minus', `−${deletions}`),
@@ -617,6 +860,8 @@ function loadPrefs() {
     const stored = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
     if (stored.mode === 'unified' || stored.mode === 'split') prefs.mode = stored.mode;
     if (stored.theme === 'light' || stored.theme === 'dark') prefs.theme = stored.theme;
+    if (typeof stored.focus === 'boolean') prefs.focus = stored.focus;
+    if (stored.scale === 'linear' || stored.scale === 'log') prefs.scale = stored.scale;
   } catch {
     // Corrupt or unavailable storage is not worth surfacing; defaults apply.
   }
@@ -653,10 +898,59 @@ function applyMode() {
   }
 }
 
+/**
+ * Labels one display control and fills its tooltip. The label keeps the value
+ * in bold after a fixed caption, so the two controls line up as a pair and the
+ * current setting is readable without opening anything.
+ */
+function paintControl(id, caption, value, copy) {
+  const button = document.getElementById(id);
+  button.textContent = '';
+  button.append(`${caption}: `, spanWith('value', value));
+
+  const tip = button.parentElement.querySelector('.tip');
+  tip.querySelector('.tip-now').textContent = copy.now;
+  tip.querySelector('.tip-then').textContent = copy.then;
+}
+
+/**
+ * Whether hovering a row fades the other directories back. The flag lives on
+ * <body> rather than on the list, because render() replaces the list on every
+ * view change and would drop the state with it. Being a class also means
+ * toggling it repaints without rebuilding a few hundred rows.
+ */
+function applyFocus() {
+  document.body.classList.toggle('group-focus', prefs.focus);
+
+  const button = document.getElementById('focus-toggle');
+  button.setAttribute('aria-pressed', String(prefs.focus));
+  paintControl('focus-toggle', 'Focus', prefs.focus ? 'On' : 'Off', CONTROL_COPY.focus[prefs.focus ? 'on' : 'off']);
+}
+
+/**
+ * Re-measures every bar in place rather than re-rendering. A few hundred width
+ * changes are far cheaper than rebuilding the list, and any file the reader has
+ * open keeps its diff.
+ */
+function applyScale() {
+  paintControl(
+    'scale-toggle',
+    'Scale',
+    prefs.scale === 'log' ? 'Log' : 'Linear',
+    CONTROL_COPY.scale[prefs.scale],
+  );
+
+  for (const row of document.querySelectorAll('.file-row')) {
+    row.querySelector('.fill').style.width = `${barWidth(Number(row.dataset.total))}%`;
+  }
+}
+
 function init() {
   loadPrefs();
   applyTheme();
   applyMode();
+  applyFocus();
+  applyScale();
 
   document.getElementById('file-input').addEventListener('change', (event) => {
     const file = event.target.files[0];
@@ -678,6 +972,20 @@ function init() {
     savePrefs();
     applyMode();
     render();
+  });
+
+  // No render() in either of these: the fade is pure CSS, and the scale only
+  // rewrites widths on rows that already exist.
+  document.getElementById('focus-toggle').addEventListener('click', () => {
+    prefs.focus = !prefs.focus;
+    savePrefs();
+    applyFocus();
+  });
+
+  document.getElementById('scale-toggle').addEventListener('click', () => {
+    prefs.scale = prefs.scale === 'log' ? 'linear' : 'log';
+    savePrefs();
+    applyScale();
   });
 
   document.getElementById('theme-toggle').addEventListener('click', () => {

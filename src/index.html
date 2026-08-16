@@ -24,7 +24,30 @@
 
   <input type="file" id="file-input" accept=".patch,.diff,text/plain" hidden>
 
-  <div class="summary" id="summary" hidden></div>
+  <!-- The totals are filled in by showSummary(); everything after the spacer is
+       static, so the controls survive a re-render of the figures. Each control
+       carries its own tooltip, whose two halves are written by applyScale() and
+       applyFocus() so they always describe the state actually in effect. -->
+  <div class="summary" id="summary" hidden>
+    <span id="summary-totals"></span>
+    <span class="summary-spacer"></span>
+
+    <span class="ctl">
+      <button type="button" class="textbtn" id="scale-toggle"></button>
+      <span class="tip" role="tooltip">
+        <span class="tip-now"></span>
+        <span class="tip-then"></span>
+      </span>
+    </span>
+
+    <span class="ctl">
+      <button type="button" class="textbtn" id="focus-toggle" aria-pressed="true"></button>
+      <span class="tip" role="tooltip">
+        <span class="tip-now"></span>
+        <span class="tip-then"></span>
+      </span>
+    </span>
+  </div>
 
   <main id="main">
     <section class="intro" id="intro">

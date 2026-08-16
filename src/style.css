@@ -10,16 +10,26 @@
    bar with blue controls, dark is a near-black bar with an orange rule and
    green controls.
 
-   --add-num-bg and --del-num-bg use 0.22 rather than 0.3 because at 0.3 the
-   muted line-number text only reaches 4.00:1 against the tint, short of the
-   4.5:1 WCAG AA minimum.
+   Text colours are chosen against the darkest ground they can land on, not
+   against the plain background. A file row paints a bar and a hover wash
+   behind its own text, so --fg-muted, --stat-plus and --stat-minus are all
+   measured through those layers; their plain-background figures have several
+   points of headroom over the 4.5:1 WCAG AA minimum precisely because the
+   layered case is what binds.
+
+   --add-num-bg and --del-num-bg stay at 0.22 for looks, not for contrast: the
+   muted line numbers clear 4.5:1 against those tints up to roughly 0.4.
    --------------------------------------------------------------------------- */
 :root {
   --bg: #ffffff;
   --bg-inset: #f6f8fa;
   --fg: #1f2328;
-  --fg-muted: #59636e;
+  --fg-muted: #4c545c;
   --border: #d1d9e0;
+
+  /* For controls whose fill matches the page, where the border carries the
+     whole boundary. --border is tuned for dividers and is too faint to do it. */
+  --border-strong: #868f99;
 
   --add-bg: #e6ffec;
   --add-num-bg: #ccffd8;
@@ -32,8 +42,38 @@
   --hunk-bg: #f6f8fa;
   --ws-bg: rgba(31, 35, 40, 0.22);
 
+  /* File-row bar. Deliberately separate from --add-bg and --del-bg: those tint
+     a line of code, these tint a measurement drawn behind running text. */
+  --bar-add: rgba(26, 127, 55, 0.16);
+  --bar-del: rgba(207, 34, 46, 0.16);
+
+  /* Hover wash for a file row. Dark over light here, light over dark below. */
+  --veil: rgba(31, 35, 40, 0.09);
+
+  /* Tooltip surface. Sits on the page's own palette rather than inverting, so
+     it reads as part of the page; the shadow is what lifts it clear. */
+  --tip-bg: #ffffff;
+  --tip-border: #d1d9e0;
+  --tip-shadow: rgba(31, 35, 40, 0.16);
+
+  /* Directory group rules, cycled by GROUP_SLOTS in app.js. Kept clear of red
+     and green, which the +/- figures already own, so a group colour is never
+     read as an added or deleted signal. */
+  --g0: #0969da;
+  --g1: #8250df;
+  --g2: #bf8700;
+  --g3: #0f7c86;
+  --g4: #bc4c00;
+  --g5: #6e40c9;
+
   --accent: #0969da;
   --danger: #cf222e;
+
+  /* The +/- figures in the summary bar and in every file row. Kept apart from
+     --danger because these are read through the row bar and the hover wash,
+     while .error sits on a plain surface and can afford a lighter red. */
+  --stat-plus: #116329;
+  --stat-minus: #a40e26;
 
   /* The toolbar is its own surface, separate from --bg-inset, which is still
      used by file headers and hunk headers inside the content area. */
@@ -60,8 +100,9 @@
     --bg: #0d1117;
     --bg-inset: #161b22;
     --fg: #e6edf3;
-    --fg-muted: #8b949e;
+    --fg-muted: #a5aeb8;
     --border: #30363d;
+    --border-strong: #636c76;
 
     --add-bg: rgba(46, 160, 67, 0.15);
     --add-num-bg: rgba(46, 160, 67, 0.22);
@@ -74,8 +115,31 @@
     --hunk-bg: #161b22;
     --ws-bg: rgba(230, 237, 243, 0.25);
 
+    --bar-add: rgba(46, 160, 67, 0.22);
+    --bar-del: rgba(248, 81, 73, 0.22);
+
+    --veil: rgba(230, 237, 243, 0.09);
+
+    /* A step lighter than --bg so the card lifts off the page; the light
+       theme's white already does that on its own. */
+    --tip-bg: #1c2128;
+    --tip-border: #444c56;
+    --tip-shadow: rgba(1, 4, 9, 0.7);
+
+    /* Brightened for a near-black ground; the light set is far too dark here.
+       g5 goes pink rather than a lighter indigo, which would collide with g0. */
+    --g0: #58a6ff;
+    --g1: #bc8cff;
+    --g2: #e3b341;
+    --g3: #39c5cf;
+    --g4: #ffa657;
+    --g5: #f778ba;
+
     --accent: #4ade80;
     --danger: #f85149;
+
+    --stat-plus: #56d364;
+    --stat-minus: #ffa198;
 
     --toolbar-bg: #010409;
     --toolbar-fg: #ffffff;
@@ -94,8 +158,9 @@
   --bg: #0d1117;
   --bg-inset: #161b22;
   --fg: #e6edf3;
-  --fg-muted: #8b949e;
+  --fg-muted: #a5aeb8;
   --border: #30363d;
+  --border-strong: #636c76;
 
   --add-bg: rgba(46, 160, 67, 0.15);
   --add-num-bg: rgba(46, 160, 67, 0.22);
@@ -108,8 +173,31 @@
   --hunk-bg: #161b22;
   --ws-bg: rgba(230, 237, 243, 0.25);
 
+  --bar-add: rgba(46, 160, 67, 0.22);
+  --bar-del: rgba(248, 81, 73, 0.22);
+
+  --veil: rgba(230, 237, 243, 0.09);
+
+  /* A step lighter than --bg so the card lifts off the page; the light
+     theme's white already does that on its own. */
+  --tip-bg: #1c2128;
+  --tip-border: #444c56;
+  --tip-shadow: rgba(1, 4, 9, 0.7);
+
+  /* Brightened for a near-black ground; the light set is far too dark here.
+     g5 goes pink rather than a lighter indigo, which would collide with g0. */
+  --g0: #58a6ff;
+  --g1: #bc8cff;
+  --g2: #e3b341;
+  --g3: #39c5cf;
+  --g4: #ffa657;
+  --g5: #f778ba;
+
   --accent: #4ade80;
   --danger: #f85149;
+
+  --stat-plus: #56d364;
+  --stat-minus: #ffa198;
 
   --toolbar-bg: #010409;
   --toolbar-fg: #ffffff;
@@ -207,19 +295,91 @@ body {
 
 .summary {
   display: flex;
+  align-items: center;
   gap: 16px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   font-size: 13px;
   color: var(--fg-muted);
   border-bottom: 1px solid var(--border);
 }
 
-.summary .plus { color: #1a7f37; font-weight: 600; }
-.summary .minus { color: var(--danger); font-weight: 600; }
-:root[data-theme="dark"] .summary .plus { color: #3fb950; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .summary .plus { color: #3fb950; }
+#summary-totals { display: flex; gap: 16px; }
+
+/* Pushes everything after it to the right end of the bar. */
+.summary-spacer { flex: 1; }
+
+/* Anchors a control's tooltip. No overflow clipping may appear on the chain
+   from here up to <body>, or the tooltip is cut off. */
+.ctl { position: relative; }
+
+/* Quieter than .btn, whose blue fill is tuned for the dark toolbar and would
+   shout on this pale bar. Both controls carry a caption and their current
+   value, the same shape as the toolbar's "Theme: Light". */
+.textbtn {
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: inherit;
+  color: var(--fg-muted);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
 }
+
+.textbtn:hover { color: var(--fg); border-color: var(--fg-muted); }
+.textbtn .value { font-weight: 600; color: var(--fg); }
+
+/* --- control tooltip ------------------------------------------------------ */
+
+/* Two stacked halves — what the setting does now, and what clicking would do —
+   divided edge to edge. The frame carries no padding of its own so that rule
+   reaches both borders instead of floating inside a margin. */
+.tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  /* Above the sticky toolbar's 20, so a tooltip is never covered by it. */
+  z-index: 30;
+  display: block;
+  width: 300px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  color: var(--fg);
+  background: var(--tip-bg);
+  border: 1px solid var(--tip-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px var(--tip-shadow);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s, visibility 0.12s;
+}
+
+/* Keyboard focus opens the tooltip too, but via :focus-visible rather than
+   :focus or :focus-within — those also match a mouse click, which would leave
+   the tooltip pinned open after the pointer had moved away. */
+.ctl:hover .tip,
+.textbtn:focus-visible + .tip { opacity: 1; visibility: visible; }
+
+.tip-now {
+  display: block;
+  padding: 9px 12px;
+  font-weight: 600;
+}
+
+.tip-then {
+  display: block;
+  padding: 9px 12px;
+  color: var(--fg-muted);
+  border-top: 1px solid var(--tip-border);
+}
+
+.summary .plus { color: var(--stat-plus); font-weight: 600; }
+.summary .minus { color: var(--stat-minus); font-weight: 600; }
 
 /* ------------------------------------------------------------------ intro */
 
@@ -253,7 +413,7 @@ main { padding: 16px; }
   font-size: 12px;
   color: var(--fg);
   background: var(--bg-inset);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: 6px;
   resize: vertical;
 }
@@ -275,47 +435,104 @@ main { padding: 16px; }
   white-space: pre-wrap;
 }
 
-/* ------------------------------------------------------------- file block */
+/* -------------------------------------------------------------- file list */
 
-.file {
-  margin-bottom: 16px;
+/* The left corners are square on purpose. A radius there would clip the top of
+   the first row's group rule and the bottom of the last one's into a curve. */
+.file-list {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 0 6px 6px 0;
   overflow: hidden;
 }
 
-.file-head {
+.file-row {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg-inset);
-  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  padding: 7px 12px;
   cursor: pointer;
   user-select: none;
+  border-top: 1px solid var(--border);
+  border-left: 3px solid var(--group, var(--border));
+  transition: box-shadow 0.1s, border-left-color 0.1s;
 }
 
-.file.is-collapsed .file-head { border-bottom: 0; }
-.file.is-collapsed .file-body { display: none; }
+.file-row:first-child { border-top: 0; }
+
+/* One negatively stacked container holding every paint layer. Because the
+   wrapper carries the z-index, the bar and the veil stack against each other
+   inside it and both stay behind the row's text without competing for a
+   z-index in the row's own stacking context. */
+.layers {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  display: flex;
+  transition: opacity 0.1s;
+}
+
+.fill .add { background: var(--bar-add); }
+.fill .del { background: var(--bar-del); }
+
+/* Painted above the bar rather than behind it, so a hovered row deepens by the
+   same amount whether or not the bar reaches that part of the row. */
+.veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+  transition: background 0.1s;
+}
+
+.file-row:hover .veil { background: var(--veil); }
+
+/* Every row of the pointed-at directory: the rule appears to double in width.
+   An inset shadow rather than a wider border, so nothing reflows. This covers
+   the hovered row too, so it needs no rule of its own. */
+.file-row.in-group { box-shadow: inset 3px 0 0 var(--group); }
+
+/* Scoped to the list's own hover so the whole list returns to full strength
+   once the pointer leaves, instead of holding the last group it touched, and
+   to .group-focus so the summary bar's switch can turn the fade off.
+
+   Only the row's own paint recedes — the rule goes neutral, the bar drops
+   back — while every glyph stays at full strength. Fading the whole row with
+   `opacity` is what this replaced: --fg-muted is thin enough that nothing
+   below 0.97 holds the 4.5:1 minimum, which leaves no room between illegible
+   and no visible fade at all. */
+.group-focus .file-list:hover .file-row:not(.in-group) {
+  border-left-color: var(--border);
+}
+
+.group-focus .file-list:hover .file-row:not(.in-group) .fill { opacity: 0.25; }
 
 .twisty {
-  width: 16px;
+  flex: none;
+  width: 12px;
+  font-size: 11px;
   color: var(--fg-muted);
   text-align: center;
   transition: transform 0.1s;
 }
 
-.file.is-collapsed .twisty { transform: rotate(-90deg); }
+.file-row.is-open .twisty { transform: rotate(90deg); }
 
-.badge {
-  padding: 1px 7px;
+/* Fixed width so the paths line up down the list regardless of label length. */
+.kind {
+  flex: none;
+  width: 74px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   color: var(--fg-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
 }
 
 .path {
@@ -326,15 +543,23 @@ main { padding: 16px; }
   font-size: 13px;
 }
 
+.path .dir { color: var(--fg-muted); }
 .path .arrow { color: var(--fg-muted); }
 
-.stat { font-family: var(--mono); font-size: 12px; white-space: nowrap; }
-.stat .plus { color: #1a7f37; }
-.stat .minus { color: var(--danger); }
-:root[data-theme="dark"] .stat .plus { color: #3fb950; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .stat .plus { color: #3fb950; }
+.stat {
+  flex: none;
+  width: 96px;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
 }
+
+.stat .plus { color: var(--stat-plus); }
+.stat .minus { color: var(--stat-minus); }
+
+/* Only present while its row is expanded; collapsing removes it outright. */
+.file-body { border-top: 1px solid var(--border); }
 
 .file-note {
   padding: 16px;
