@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- The build workflow now declares read-only repository permissions, so its token no longer inherits whatever the repository defaults grant.
+
 ## [1.1.0] - 2026-08-16
 
 ### Added
