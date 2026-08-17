@@ -50,3 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Light and dark themes, following the system preference until one is chosen explicitly.
 - Collapsible per-file sections showing the change kind and added or removed line counts.
 - Explicit notes for patches with no hunks, covering binary, rename, copy, and mode-only changes.
+
+[Unreleased]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/Ming-Hao/gitpatch-viewer/tree/v1.0.0
