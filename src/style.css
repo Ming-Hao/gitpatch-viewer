@@ -47,6 +47,11 @@
   --bar-add: rgba(26, 127, 55, 0.16);
   --bar-del: rgba(207, 34, 46, 0.16);
 
+  /* Fill behind the partial-expansion pill. Kept apart from the two above on
+     purpose: those measure how much the file changed, this measures how much
+     of that change is currently on screen. */
+  --partial-fill: rgba(9, 105, 218, 0.14);
+
   /* Hover wash for a file row. Dark over light here, light over dark below. */
   --veil: rgba(31, 35, 40, 0.09);
 
@@ -117,6 +122,7 @@
 
     --bar-add: rgba(46, 160, 67, 0.22);
     --bar-del: rgba(248, 81, 73, 0.22);
+    --partial-fill: rgba(88, 166, 255, 0.18);
 
     --veil: rgba(230, 237, 243, 0.09);
 
@@ -175,6 +181,7 @@
 
   --bar-add: rgba(46, 160, 67, 0.22);
   --bar-del: rgba(248, 81, 73, 0.22);
+  --partial-fill: rgba(88, 166, 255, 0.18);
 
   --veil: rgba(230, 237, 243, 0.09);
 
@@ -546,6 +553,31 @@ main { padding: 16px; }
 .path .dir { color: var(--fg-muted); }
 .path .arrow { color: var(--fg-muted); }
 
+/* Present only while the row is open on less than the whole file. Its own fill
+   is the progress bar — --progress is set per row from paintPartial() — which
+   saves an element and keeps the pill a single hit-free run of text.
+
+   The opaque background is deliberate: this sits over the row's change bar, and
+   letting that show through would put two unrelated measurements in one strip
+   of colour. */
+.partial {
+  flex: none;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background-color: var(--bg);
+  background-image: linear-gradient(
+    to right,
+    var(--partial-fill) 0 var(--progress, 0%),
+    transparent var(--progress, 0%)
+  );
+}
+
+.partial .value { font-family: var(--mono); font-weight: 600; color: var(--fg); }
+
 .stat {
   flex: none;
   width: 96px;
@@ -621,6 +653,45 @@ tr:first-child.hunk td { border-top: 0; }
 .num.add { background: var(--add-num-bg); }
 .num.del { background: var(--del-num-bg); }
 .code.filler { background: var(--bg-inset); }
+
+/* ---------------------------------------------------------- batch footer */
+
+/* Sits below the table inside .file-body, which makes its buttons siblings of
+   the file row rather than children of it — clicking one cannot collapse the
+   file, so no click handler needs to stop propagation. Removed outright once
+   the last batch lands. */
+.file-more {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--fg-muted);
+  background: var(--bg-inset);
+  border-top: 1px solid var(--border);
+}
+
+.file-more .spacer { flex: 1; }
+
+/* Matches .textbtn rather than .btn: this is a footer inside the content area,
+   where .btn's blue fill — tuned for the dark toolbar — would shout. */
+.more-btn {
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: inherit;
+  color: var(--fg-muted);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.more-btn:hover { color: var(--fg); border-color: var(--fg-muted); }
+
+/* The batch step, against the quieter "show all" escape hatch beside it. */
+.more-btn.is-primary { color: var(--fg); font-weight: 600; }
 
 /* Word-level highlight inside a changed line. */
 .seg { border-radius: 2px; }

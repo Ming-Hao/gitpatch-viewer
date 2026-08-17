@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A pill on any file row opened on part of its diff, giving the hunks rendered so far and filling in proportion as further batches land.
+
+### Changed
+
+- An opened file now renders its hunks in batches of roughly 300 lines, with a footer offering the next batch or the whole remainder.
+
 ### Security
 
 - The build workflow now declares read-only repository permissions, so its token no longer inherits whatever the repository defaults grant.

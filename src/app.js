@@ -42,6 +42,18 @@ const KIND_ORDER = ['modify', 'add', 'delete', 'rename', 'copy', 'mode', 'binary
 const GROUP_SLOTS = 6;
 
 /**
+ * Line budget for one batch of hunks. An opened file starts at the first batch
+ * and grows a batch at a time, so a file that changes tens of thousands of
+ * lines costs a few hundred table rows on the click instead of all of them —
+ * a generated lockfile can otherwise carry a thousand hunks on its own.
+ *
+ * Counted in lines rather than hunks because the two are not proportional:
+ * twenty three-line hunks and twenty two-hundred-line hunks are two orders of
+ * magnitude apart, and only a line budget keeps the cost of a batch even.
+ */
+const BATCH_LINES = 300;
+
+/**
  * Tooltip copy for the two display controls, keyed by the state in effect.
  * Each entry says what the current setting does, then what pressing the control
  * would do — the second half never just names the other mode, because a name
@@ -396,9 +408,12 @@ function render() {
     // switch take effect on files the reader already had open. The class has to
     // be restored alongside it, or the row keeps a collapsed twisty and the
     // next click expands a file that is already expanded.
+    //
+    // A file reopened this way starts at its first batch again: `expanded`
+    // records which files are open, not how far into each one the reader got.
     if (expanded.has(sortPath(file))) {
       row.classList.add('is-open');
-      row.after(renderBody(file));
+      row.after(renderBody(file, row));
     }
   }
 
@@ -434,6 +449,11 @@ function renderRow(file) {
   row.appendChild(kind);
 
   row.appendChild(renderRowPath(file));
+
+  // Empty and hidden until a batch lands; see paintPartial().
+  const partial = spanWith('partial', '');
+  partial.hidden = true;
+  row.appendChild(partial);
 
   const stat = document.createElement('span');
   stat.className = 'stat';
@@ -522,23 +542,150 @@ function renderRowPath(file) {
   return path;
 }
 
-/** Builds the diff for one file. Only ever called from a click. */
-function renderBody(file) {
+/**
+ * How many hunks starting at `from` fit in one batch. Always at least one, so a
+ * single hunk larger than the whole budget still makes progress rather than
+ * leaving the button with nothing to add.
+ */
+function batchSize(hunks, from) {
+  let lines = 0;
+  let count = 0;
+
+  while (from + count < hunks.length) {
+    lines += hunks[from + count].lines.length;
+    count++;
+    if (lines >= BATCH_LINES) break;
+  }
+
+  return count;
+}
+
+function countLines(hunks) {
+  return hunks.reduce((sum, hunk) => sum + hunk.lines.length, 0);
+}
+
+/**
+ * Counts in the batch footer land on one often enough to be worth spelling:
+ * the last step of a long file is regularly a single hunk, and a hunk over the
+ * whole line budget makes a batch of one.
+ */
+function plural(count, noun) {
+  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+}
+
+/**
+ * Builds the diff for one file, a batch of hunks at a time. Only ever called
+ * from a click, or from render() rebuilding a row that was already open.
+ *
+ * `row` is the file row this body belongs under. It carries the pill saying how
+ * much of the file is on screen, which is repainted from here as batches land.
+ */
+function renderBody(file, row) {
   const body = document.createElement('div');
   body.className = 'file-body';
 
-  if (file.hunks.length) {
-    const scroll = document.createElement('div');
-    scroll.className = 'diff-scroll';
-    scroll.appendChild(
-      prefs.mode === 'split' ? renderSplitTable(file) : renderUnifiedTable(file),
-    );
-    body.appendChild(scroll);
-  } else {
+  if (!file.hunks.length) {
     body.appendChild(renderFileNote(file));
+    return body;
   }
 
+  const scroll = document.createElement('div');
+  scroll.className = 'diff-scroll';
+
+  // One table filled repeatedly rather than a table per batch: table.diff is
+  // `width: max-content`, so each table would size its columns against its own
+  // rows and the line numbers would step at every batch boundary.
+  const table = document.createElement('table');
+  table.className = prefs.mode === 'split' ? 'diff split' : 'diff unified';
+  scroll.appendChild(table);
+  body.appendChild(scroll);
+
+  const append = prefs.mode === 'split' ? appendSplitHunks : appendUnifiedHunks;
+  const total = file.hunks.length;
+  const totalLines = countLines(file.hunks);
+
+  const bar = document.createElement('div');
+  bar.className = 'file-more';
+  let done = 0;
+  let doneLines = 0;
+
+  const advance = (all) => {
+    const take = all ? total - done : batchSize(file.hunks, done);
+    const batch = file.hunks.slice(done, done + take);
+    append(table, batch);
+    done += take;
+    doneLines += countLines(batch);
+    paintMore();
+  };
+
+  function paintMore() {
+    bar.textContent = '';
+    paintPartial(row, done, total);
+
+    // The whole file is rendered, so the bar has nothing left to offer.
+    if (done >= total) {
+      bar.remove();
+      return;
+    }
+
+    bar.append(
+      spanWith('count', `${done} of ${plural(total, 'hunk')} · ${doneLines} of ${plural(totalLines, 'line')}`),
+      spanWith('spacer', ''),
+    );
+
+    const next = batchSize(file.hunks, done);
+    const remaining = total - done;
+
+    // One more batch would finish the file, so two buttons would do the same
+    // thing as each other.
+    if (next >= remaining) {
+      bar.appendChild(moreButton(`Show remaining ${plural(remaining, 'hunk')}`, () => advance(true)));
+      return;
+    }
+
+    bar.append(
+      moreButton(`Show next ${plural(next, 'hunk')}`, () => advance(false)),
+      // The figure is the point: the escape hatch states its own cost rather
+      // than leaving the reader to discover it by freezing the page.
+      moreButton(`Show all (${plural(totalLines - doneLines, 'more line')})`, () => advance(true), true),
+    );
+  }
+
+  body.appendChild(bar);
+  advance(false);
   return body;
+}
+
+function moreButton(label, onClick, quiet) {
+  const button = document.createElement('button');
+  button.className = quiet ? 'more-btn' : 'more-btn is-primary';
+  button.textContent = label;
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+/**
+ * The pill on the file row saying how much of the file is on screen, so a
+ * partly opened file says so where the reader is looking rather than only at
+ * the foot of a diff they have to scroll to reach.
+ *
+ * Hidden once everything is rendered: a pill reading "1028 / 1028" is noise,
+ * and its absence is what "all of it" means.
+ */
+function paintPartial(row, done, total) {
+  const pill = row.querySelector('.partial');
+  if (!pill) return;
+
+  if (done >= total) {
+    pill.hidden = true;
+    return;
+  }
+
+  pill.textContent = '';
+  pill.append('partial ', spanWith('value', `${done} / ${total}`), ' hunks');
+  // Read by .partial's gradient, which explains why it is a percentage.
+  pill.style.setProperty('--progress', `${(done / total) * 100}%`);
+  pill.hidden = false;
 }
 
 /**
@@ -552,13 +699,16 @@ function toggleFile(row, file) {
   if (expanded.has(key)) {
     expanded.delete(key);
     row.classList.remove('is-open');
+    // The batches go with the body, so the pill has nothing left to report.
+    const pill = row.querySelector('.partial');
+    if (pill) pill.hidden = true;
     if (body && body.classList.contains('file-body')) body.remove();
     return;
   }
 
   expanded.add(key);
   row.classList.add('is-open');
-  row.after(renderBody(file));
+  row.after(renderBody(file, row));
 }
 
 /**
@@ -606,11 +756,9 @@ function renderFileNote(file) {
   return note;
 }
 
-function renderUnifiedTable(file) {
-  const table = document.createElement('table');
-  table.className = 'diff unified';
-
-  for (const hunk of file.hunks) {
+/** Appends one batch of hunks to a unified table that already exists. */
+function appendUnifiedHunks(table, hunks) {
+  for (const hunk of hunks) {
     table.appendChild(hunkRow(hunk.header, 3));
 
     // Unified keeps the patch's own line order; pairing only supplies the
@@ -623,15 +771,11 @@ function renderUnifiedTable(file) {
       table.appendChild(tr);
     }
   }
-
-  return table;
 }
 
-function renderSplitTable(file) {
-  const table = document.createElement('table');
-  table.className = 'diff split';
-
-  for (const hunk of file.hunks) {
+/** Appends one batch of hunks to a side-by-side table that already exists. */
+function appendSplitHunks(table, hunks) {
+  for (const hunk of hunks) {
     table.appendChild(hunkRow(hunk.header, 4));
 
     for (const row of hunk.rows) {
@@ -650,8 +794,6 @@ function renderSplitTable(file) {
       table.appendChild(tr);
     }
   }
-
-  return table;
 }
 
 function hunkRow(header, span) {
