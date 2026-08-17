@@ -17,6 +17,12 @@
    points of headroom over the 4.5:1 WCAG AA minimum precisely because the
    layered case is what binds.
 
+   That headroom is also why the focus fade has a --fg-dim to step down to.
+   Pushing a row back is done by CHANGING its colour, never by fading it: an
+   opacity over already-muted text runs out of room long before the fade is
+   visible, whereas every colour here is measured against the ground it will
+   actually sit on. See the .group-focus rules for which token lands where.
+
    --add-num-bg and --del-num-bg stay at 0.22 for looks, not for contrast: the
    muted line numbers clear 4.5:1 against those tints up to roughly 0.4.
    --------------------------------------------------------------------------- */
@@ -25,6 +31,14 @@
   --bg-inset: #f6f8fa;
   --fg: #1f2328;
   --fg-muted: #4c545c;
+
+  /* One step below --fg-muted, for the rows a focused directory has pushed
+     back. It can go lower than --fg-muted because a pushed-back row never
+     carries the hover veil — the pointed-at row is in the focused group by
+     definition — so the bar alone is its darkest ground. Measured there at
+     4.68:1, which is most of what the muted headroom was holding in reserve. */
+  --fg-dim: #5c636b;
+
   --border: #d1d9e0;
 
   /* For controls whose fill matches the page, where the border carries the
@@ -54,6 +68,25 @@
 
   /* Hover wash for a file row. Dark over light here, light over dark below. */
   --veil: rgba(31, 35, 40, 0.09);
+
+  /* The focused directory's own wash. Deliberately weaker than --veil so the
+     row actually under the pointer still reads as the deepest of the three
+     levels: hovered row, then its directory, then everything else. Being the
+     weaker of the two, it never becomes the binding case for text contrast. */
+  --group-wash: rgba(31, 35, 40, 0.05);
+
+  /* How much of a pushed-back row's paint survives the focus. --fill-dim
+     multiplies the bar's own alpha, so the figure understates how faint the
+     result is: 0.4 here lands at an effective 0.064. Tuned by eye against the
+     deletion bar, which loses its hue sooner than the addition bar does, and
+     set far lower on dark for the same reason.
+
+     --stat-mix is the share of its own colour a pushed-back +/- figure keeps,
+     the rest being --fg-dim. It has no dark counterpart on purpose: the bar is
+     a wide wash whose readable strength depends on the ground behind it, while
+     the figures are small type that wants the same restraint either way. */
+  --fill-dim: 0.4;
+  --stat-mix: 20%;
 
   /* Tooltip surface. Sits on the page's own palette rather than inverting, so
      it reads as part of the page; the shadow is what lifts it clear. */
@@ -106,6 +139,7 @@
     --bg-inset: #161b22;
     --fg: #e6edf3;
     --fg-muted: #a5aeb8;
+    --fg-dim: #8d959e;
     --border: #30363d;
     --border-strong: #636c76;
 
@@ -125,6 +159,12 @@
     --partial-fill: rgba(88, 166, 255, 0.18);
 
     --veil: rgba(230, 237, 243, 0.09);
+    --group-wash: rgba(230, 237, 243, 0.05);
+
+    /* Far below the light theme's 0.4: the deletion bar goes grey against a
+       near-black ground much sooner, so it runs out of hue first. --stat-mix
+       is not repeated here — both themes use the one on :root. */
+    --fill-dim: 0.16;
 
     /* A step lighter than --bg so the card lifts off the page; the light
        theme's white already does that on its own. */
@@ -165,6 +205,7 @@
   --bg-inset: #161b22;
   --fg: #e6edf3;
   --fg-muted: #a5aeb8;
+  --fg-dim: #8d959e;
   --border: #30363d;
   --border-strong: #636c76;
 
@@ -184,6 +225,12 @@
   --partial-fill: rgba(88, 166, 255, 0.18);
 
   --veil: rgba(230, 237, 243, 0.09);
+  --group-wash: rgba(230, 237, 243, 0.05);
+
+  /* Far below the light theme's 0.4: the deletion bar goes grey against a
+     near-black ground much sooner, so it runs out of hue first. --stat-mix
+     is not repeated here — both themes use the one on :root. */
+  --fill-dim: 0.16;
 
   /* A step lighter than --bg so the card lifts off the page; the light
      theme's white already does that on its own. */
@@ -503,22 +550,64 @@ main { padding: 16px; }
 /* Every row of the pointed-at directory: the rule appears to double in width.
    An inset shadow rather than a wider border, so nothing reflows. This covers
    the hovered row too, so it needs no rule of its own. */
-.file-row.in-group { box-shadow: inset 3px 0 0 var(--group); }
+.file-row.in-group { box-shadow: inset 4px 0 0 var(--group); }
 
-/* Scoped to the list's own hover so the whole list returns to full strength
-   once the pointer leaves, instead of holding the last group it touched, and
-   to .group-focus so the summary bar's switch can turn the fade off.
+/* The focused directory lights up rather than only its neighbours dimming.
+   Dimming alone is bounded — the text floor is 4.5:1 and nothing goes past it —
+   while emphasis has no ceiling, so the contrast between the group and the rest
+   is built from both ends.
 
-   Only the row's own paint recedes — the rule goes neutral, the bar drops
-   back — while every glyph stays at full strength. Fading the whole row with
-   `opacity` is what this replaced: --fg-muted is thin enough that nothing
-   below 0.97 holds the 4.5:1 minimum, which leaves no room between illegible
-   and no visible fade at all. */
-.group-focus .file-list:hover .file-row:not(.in-group) {
-  border-left-color: var(--border);
+   :not(:hover) leaves the pointed-at row to the deeper --veil above, which is
+   what keeps three levels legible: hovered row, its directory, everything
+   else. Without it this rule wins on specificity and flattens the top two. */
+.group-focus .file-list:hover .file-row.in-group:not(:hover) .veil {
+  background: var(--group-wash);
 }
 
-.group-focus .file-list:hover .file-row:not(.in-group) .fill { opacity: 0.25; }
+/* Everything below pushes back the directories that are not focused, which is
+   the other half of the same contrast. Scoped to the list's own hover so the
+   whole list returns to full strength once the pointer leaves,
+   instead of holding the last group it touched, and to .group-focus so the
+   summary bar's switch can turn the fade off.
+
+   A pushed-back row is the one place --fg-dim is used. It can sit below
+   --fg-muted because it is never the hovered row — the pointer is always
+   inside the focused group — so it never takes the veil on top of its bar, and
+   the headroom --fg-muted holds for that case is free here. */
+.group-focus .file-list:hover .file-row:not(.in-group) {
+  border-left-color: transparent;
+}
+
+/* The whole path drops together, prefix included. Demoting only the filename
+   would leave the directory brighter than the name it qualifies, inverting the
+   row's own hierarchy at exactly the moment the row stops being the subject. */
+.group-focus .file-list:hover .file-row:not(.in-group) .path,
+.group-focus .file-list:hover .file-row:not(.in-group) .path .dir,
+.group-focus .file-list:hover .file-row:not(.in-group) .path .arrow,
+.group-focus .file-list:hover .file-row:not(.in-group) .kind {
+  color: var(--fg-dim);
+}
+
+/* Weight is not a contrast channel, so this costs nothing and the uppercase
+   label stops competing with the paths. */
+.group-focus .file-list:hover .file-row:not(.in-group) .kind { font-weight: 400; }
+
+/* Opacity only. The bar's hue is the whole point of it — green and red say
+   which way the file moved — so it goes faint rather than grey. */
+.group-focus .file-list:hover .file-row:not(.in-group) .fill { opacity: var(--fill-dim); }
+
+/* The figures recede with the bar they belong to, and by the same means: their
+   own colour, thinned. They cannot share the bar's number, whose floor is an
+   invisible alpha 0 while theirs is 4.5:1, so each side is set against its own
+   range. Both ends of the mix are measured colours and the whole interpolation
+   between them clears 4.6:1. */
+.group-focus .file-list:hover .file-row:not(.in-group) .stat .plus {
+  color: color-mix(in srgb, var(--stat-plus) var(--stat-mix), var(--fg-dim));
+}
+
+.group-focus .file-list:hover .file-row:not(.in-group) .stat .minus {
+  color: color-mix(in srgb, var(--stat-minus) var(--stat-mix), var(--fg-dim));
+}
 
 .twisty {
   flex: none;
@@ -531,7 +620,11 @@ main { padding: 16px; }
 
 .file-row.is-open .twisty { transform: rotate(90deg); }
 
-/* Fixed width so the paths line up down the list regardless of label length. */
+/* Fixed width so the paths line up down the list regardless of label length.
+
+   The colour transition, here and on .path and .stat below, matches the change
+   bar's, so a row's text and its paint recede as one movement when the focus
+   lands on another directory. */
 .kind {
   flex: none;
   width: 74px;
@@ -540,6 +633,7 @@ main { padding: 16px; }
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--fg-muted);
+  transition: color 0.1s;
 }
 
 .path {
@@ -548,10 +642,11 @@ main { padding: 16px; }
   overflow-wrap: anywhere;
   font-family: var(--mono);
   font-size: 13px;
+  transition: color 0.1s;
 }
 
-.path .dir { color: var(--fg-muted); }
-.path .arrow { color: var(--fg-muted); }
+.path .dir { color: var(--fg-muted); transition: color 0.1s; }
+.path .arrow { color: var(--fg-muted); transition: color 0.1s; }
 
 /* Present only while the row is open on less than the whole file. Its own fill
    is the progress bar — --progress is set per row from paintPartial() — which
@@ -587,8 +682,8 @@ main { padding: 16px; }
   white-space: nowrap;
 }
 
-.stat .plus { color: var(--stat-plus); }
-.stat .minus { color: var(--stat-minus); }
+.stat .plus { color: var(--stat-plus); transition: color 0.1s; }
+.stat .minus { color: var(--stat-minus); transition: color 0.1s; }
 
 /* Only present while its row is expanded; collapsing removes it outright. */
 .file-body { border-top: 1px solid var(--border); }

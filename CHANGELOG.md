@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Hovering a file row now pushes the other directories back by their text as well as their paint, and lifts the pointed-at directory with a wash of its own.
 - An opened file now renders its hunks in batches of roughly 300 lines, with a footer offering the next batch or the whole remainder.
 
 ### Security
