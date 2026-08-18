@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-18
+
 ### Added
 
 - The toolbar now carries the version, the commit it was built from, a GitHub link to that same point, and a note that the site runs on Cloudflare Workers; a build not sitting on its version's tag marks the version `-dev`.
@@ -59,7 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collapsible per-file sections showing the change kind and added or removed line counts.
 - Explicit notes for patches with no hunks, covering binary, rename, copy, and mode-only changes.
 
-[Unreleased]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Ming-Hao/gitpatch-viewer/tree/v1.0.0
