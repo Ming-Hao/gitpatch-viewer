@@ -1073,7 +1073,16 @@ function applyTheme() {
 
   const current = effectiveTheme();
   const button = document.getElementById('theme-toggle');
-  button.textContent = current === 'dark' ? 'Theme: Dark' : 'Theme: Light';
+
+  // The half naming the current theme is split off into a .lbl-wide span, so a
+  // narrow toolbar can drop it and leave "Theme" standing alone. The title says
+  // what pressing the button does either way, which is what survives best.
+  const state = document.createElement('span');
+  state.className = 'lbl-wide';
+  state.textContent = current === 'dark' ? ': Dark' : ': Light';
+
+  button.textContent = 'Theme';
+  button.append(state);
   button.title = `Switch to ${current === 'dark' ? 'light' : 'dark'} theme`;
 }
 

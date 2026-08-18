@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A narrow window no longer breaks toolbar labels mid-phrase; as it closes the left cluster stacks, the controls fall back to shorter labels, and the commit hash steps out.
+
 ## [1.2.1] - 2026-08-18
 
 ### Added

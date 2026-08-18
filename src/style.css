@@ -326,27 +326,24 @@ body {
   white-space: nowrap;
 }
 
-/* Reopened so the space before the hash counts as somewhere to break: the
-   hash is the one part that reads fine on a line of its own, and without it
-   the stamp would be a single unbreakable block pushing the toolbar wider. */
+/* The whole stamp holds together. It has two places it would otherwise break —
+   the space before the hash, and the hyphen an untagged build's "1.2.1-dev"
+   carries — and taking either strands a fragment on a line of its own. Room is
+   made instead: the cluster stacks below 860px, and the hash leaves below
+   560px. */
 .brand-version {
   margin-left: 8px;
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 400;
-  white-space: normal;
+  white-space: nowrap;
   opacity: 0.75;
 }
 
-/* An untagged build reads "1.2.1-dev", and that hyphen is a break opportunity
-   the browser will take, leaving "v1.2.1-" on one line and "dev" on the next.
-   Closed again here, inside the reopening above. */
-#app-version { white-space: nowrap; }
-
 /* One step fainter than the version it follows. The version answers "which
    release"; the hash only answers "which commit", which nobody reads unless
-   they went looking for it. The gap is the literal space in the markup rather
-   than a margin, because a margin is not something a line can break at. */
+   they went looking for it — which is also why it is the first thing to go
+   when the bar runs short. The gap is the literal space in the markup. */
 .brand-hash { opacity: 0.7; }
 
 .tmeta {
@@ -361,11 +358,15 @@ body {
    can lift that one item back to full strength without the divider following. */
 .tmeta > * { opacity: 0.8; }
 
+/* Child selector, not descendant: this sets `display`, and a descendant
+   selector would outrank the .lbl-wide / .lbl-narrow rules below and pin both
+   wordings of a label on screen at once. */
 .tmeta a,
-.tmeta span {
+.tmeta > span {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  white-space: nowrap;
 }
 
 .tmeta a {
@@ -415,6 +416,7 @@ body {
   line-height: inherit;
   color: var(--btn-fg);
   background: var(--btn-bg);
+  white-space: nowrap;
   border: 1px solid var(--btn-border);
   border-radius: 6px;
   cursor: pointer;
@@ -436,6 +438,7 @@ body {
   font-size: 14px;
   line-height: inherit;
   color: var(--btn-muted);
+  white-space: nowrap;
   background: var(--btn-bg);
   border: 0;
   cursor: pointer;
@@ -443,6 +446,43 @@ body {
 
 .segmented button + button { border-left: 1px solid var(--btn-border); }
 .segmented button.is-active { color: var(--btn-on-fg); background: var(--btn-on-bg); }
+
+/* The short half of a control label, off until the bar asks for it. Its
+   counterpart .lbl-wide needs no rule of its own while the bar is wide. */
+.lbl-narrow { display: none; }
+
+/* Nothing in the toolbar wraps, so past a certain width it would simply run
+   off the edge. Three stages give way instead, in the order the bar runs out
+   of room.
+
+   First the left cluster stops sitting on one line. It stacks rather than the
+   toolbar wrapping, so the controls hold their place and only the left side
+   grows downward. The divider between the two halves goes with it — the one
+   inside .tmeta stays, which is what the child selector is for. */
+@media (max-width: 860px) {
+  .brand-cluster {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .brand-cluster > .tdivider { display: none; }
+}
+
+/* Then the labels say the same thing in fewer words. Nothing loses its only
+   name: the theme button still carries the title naming what it does, and the
+   rest keep the position they have always held. */
+@media (max-width: 700px) {
+  .lbl-wide { display: none; }
+  .lbl-narrow { display: inline; }
+}
+
+/* Last the hash steps out, and it steps out before the bar has run out rather
+   than after: by this width the name is the widest thing on the left, so it is
+   the only place left to win any room back. */
+@media (max-width: 560px) {
+  .brand-hash { display: none; }
+}
 
 /* ---------------------------------------------------------------- summary */
 
