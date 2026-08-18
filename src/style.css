@@ -129,6 +129,13 @@
   --btn-on-bg: #0969da;
   --btn-on-fg: #ffffff;
 
+  /* Brand marks in the toolbar. The GitHub octocat is a monochrome mark and
+     stays white on both toolbars; Cloudflare's orange is the one colour that
+     has to move, because the dark toolbar is nearly black and the official
+     #f6821f both reads dark on it and collides with --rule's orange. */
+  --mark-gh: #ffffff;
+  --mark-cf: #f6821f;
+
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --row-height: 20px;
 }
@@ -197,6 +204,9 @@
     --btn-muted: #14532d;
     --btn-on-bg: #15803d;
     --btn-on-fg: #ffffff;
+
+    --mark-gh: #ffffff;
+    --mark-cf: #fbad41;
   }
 }
 
@@ -263,6 +273,9 @@
   --btn-muted: #14532d;
   --btn-on-bg: #15803d;
   --btn-on-fg: #ffffff;
+
+  --mark-gh: #ffffff;
+  --mark-cf: #fbad41;
 }
 
 * { box-sizing: border-box; }
@@ -296,7 +309,93 @@ body {
   border-bottom: 3px solid var(--rule);
 }
 
-.brand { font-weight: 600; }
+/* The left half of the toolbar: the product name, what build it is, and where
+   it came from. Everything here is baseline-aligned rather than centred so the
+   16px name and the 12px figures beside it sit on one line of type. */
+.brand-cluster {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+/* Nothing in the product name and version is allowed to break, so the only
+   place this whole stamp can wrap is the one opening below. */
+.brand {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Reopened so the space before the hash counts as somewhere to break: the
+   hash is the one part that reads fine on a line of its own, and without it
+   the stamp would be a single unbreakable block pushing the toolbar wider. */
+.brand-version {
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: normal;
+  opacity: 0.75;
+}
+
+/* An untagged build reads "1.2.1-dev", and that hyphen is a break opportunity
+   the browser will take, leaving "v1.2.1-" on one line and "dev" on the next.
+   Closed again here, inside the reopening above. */
+#app-version { white-space: nowrap; }
+
+/* One step fainter than the version it follows. The version answers "which
+   release"; the hash only answers "which commit", which nobody reads unless
+   they went looking for it. The gap is the literal space in the markup rather
+   than a margin, because a margin is not something a line can break at. */
+.brand-hash { opacity: 0.7; }
+
+.tmeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--toolbar-fg);
+}
+
+/* The opacity sits on the children, not on .tmeta itself, so hovering the link
+   can lift that one item back to full strength without the divider following. */
+.tmeta > * { opacity: 0.8; }
+
+.tmeta a,
+.tmeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tmeta a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.tmeta a:hover {
+  opacity: 1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Drawn from currentColor so it works on the toolbar without its own token. */
+.tdivider {
+  align-self: center;
+  width: 1px;
+  height: 14px;
+  background: currentColor;
+  opacity: 0.3;
+}
+
+.mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.mark-gh { fill: var(--mark-gh); }
+.mark-cf { fill: var(--mark-cf); }
 
 .toolbar-group {
   display: flex;

@@ -5,8 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/app.js --bundle --minify --outdir=dist && cp src/index.html src/_headers dist/",
-    "dev": "esbuild src/app.js --bundle --outdir=dist --watch",
+    "build": "esbuild src/app.js --bundle --minify --define:__APP_VERSION__=\\\"$npm_package_version\\\" --define:__APP_COMMIT__=\\\"$(git rev-parse --short HEAD 2>/dev/null)\\\" --define:__APP_TAGGED__=\\\"$(git tag --points-at HEAD 2>/dev/null | grep -qx \"v$npm_package_version\" && echo 1)\\\" --outdir=dist && cp src/index.html src/_headers dist/",
+    "dev": "esbuild src/app.js --bundle --define:__APP_VERSION__=\\\"$npm_package_version\\\" --define:__APP_COMMIT__=\\\"$(git rev-parse --short HEAD 2>/dev/null)\\\" --define:__APP_TAGGED__=\\\"$(git tag --points-at HEAD 2>/dev/null | grep -qx \"v$npm_package_version\" && echo 1)\\\" --outdir=dist --watch",
     "diff": "mkdir -p .fixtures && git diff HEAD > .fixtures/working.diff && echo 'wrote .fixtures/working.diff'",
     "deploy": "npm run build && npx wrangler deploy"
   },

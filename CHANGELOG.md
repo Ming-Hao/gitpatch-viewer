@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The toolbar now carries the version, the commit it was built from, a GitHub link to that same point, and a note that the site runs on Cloudflare Workers; a build not sitting on its version's tag marks the version `-dev`.
+
+### Changed
+
+- The product name in the toolbar is set two points larger than the controls beside it.
+
 ## [1.2.0] - 2026-08-17
 
 ### Added

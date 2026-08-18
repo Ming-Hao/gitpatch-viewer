@@ -1019,6 +1019,49 @@ function savePrefs() {
 }
 
 /** The theme actually in effect, resolving the unset case against the system. */
+/**
+ * Fills in the build figures the toolbar shows and points the GitHub link at
+ * whatever those figures name.
+ *
+ * The three __APP_*__ values are substituted by esbuild --define in the build
+ * and dev scripts; they do not exist as identifiers at runtime. The version
+ * comes from package.json, the hash from HEAD, and the flag records whether
+ * HEAD carries the tag named after that version. None has a copy in the source
+ * that could drift.
+ *
+ * A build standing anywhere other than on its own tag is not the release it
+ * claims: the code has moved on, or was never tagged at all. The version says
+ * so with a -dev suffix, which is why the suffix hangs off the version rather
+ * than the hash — the hash is accurate either way, it is the "this is 1.2.1"
+ * claim that is not.
+ *
+ * The link follows the same split, so what is shown and what is linked always
+ * agree: a tagged build goes to the tag's page, any other build to the commit
+ * it was actually cut from.
+ *
+ * Outside a git checkout — a source tarball, some CI images — the hash comes
+ * back empty. It then stays hidden and the link keeps the repository root that
+ * index.html ships with, which is the one destination always known to exist.
+ */
+function showBuildInfo() {
+  const tagged = Boolean(__APP_TAGGED__);
+
+  document.getElementById('app-version').textContent =
+    tagged ? __APP_VERSION__ : `${__APP_VERSION__}-dev`;
+
+  if (!__APP_COMMIT__) return;
+
+  const hash = document.getElementById('app-commit');
+  hash.textContent = __APP_COMMIT__;
+  hash.hidden = false;
+
+  const link = document.getElementById('repo-link');
+  const repo = link.getAttribute('href');
+  link.href = tagged
+    ? `${repo}/releases/tag/v${__APP_VERSION__}`
+    : `${repo}/commit/${__APP_COMMIT__}`;
+}
+
 function effectiveTheme() {
   if (prefs.theme) return prefs.theme;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -1089,6 +1132,7 @@ function applyScale() {
 
 function init() {
   loadPrefs();
+  showBuildInfo();
   applyTheme();
   applyMode();
   applyFocus();
