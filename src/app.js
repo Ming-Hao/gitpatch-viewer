@@ -1031,9 +1031,14 @@ function savePrefs() {
  *
  * A build standing anywhere other than on its own tag is not the release it
  * claims: the code has moved on, or was never tagged at all. The version says
- * so with a -dev suffix, which is why the suffix hangs off the version rather
+ * so with a +dev suffix, which is why the suffix hangs off the version rather
  * than the hash — the hash is accurate either way, it is the "this is 1.2.1"
  * claim that is not.
+ *
+ * The suffix is build metadata (+) rather than a pre-release (-) because such a
+ * build almost always sits after the tag, not before it: package.json is bumped
+ * and tagged together, so the untagged commits are the ones that follow. A -dev
+ * suffix would order this build below the release it has already passed.
  *
  * The link follows the same split, so what is shown and what is linked always
  * agree: a tagged build goes to the tag's page, any other build to the commit
@@ -1047,7 +1052,7 @@ function showBuildInfo() {
   const tagged = Boolean(__APP_TAGGED__);
 
   document.getElementById('app-version').textContent =
-    tagged ? __APP_VERSION__ : `${__APP_VERSION__}-dev`;
+    tagged ? __APP_VERSION__ : `${__APP_VERSION__}+dev`;
 
   if (!__APP_COMMIT__) return;
 

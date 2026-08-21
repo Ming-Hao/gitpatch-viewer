@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- A build not sitting on its version's tag now marks the version `+dev` rather than `-dev`, since such a build follows the release rather than preceding it.
+
 ### Fixed
 
 - A narrow window no longer breaks toolbar labels mid-phrase; as it closes the left cluster stacks, the controls fall back to shorter labels, and the commit hash steps out.
