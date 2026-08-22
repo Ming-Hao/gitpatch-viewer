@@ -65,6 +65,7 @@
        applyFocus() so they always describe the state actually in effect. -->
   <div class="summary" id="summary" hidden>
     <span id="summary-totals"></span>
+    <span class="filtered-note" id="filter-summary-note" hidden></span>
     <span class="summary-spacer"></span>
 
     <span class="ctl">
@@ -82,6 +83,18 @@
         <span class="tip-then"></span>
       </span>
     </span>
+  </div>
+
+  <!-- Hidden alongside #summary; its chips are rebuilt by renderFilterChips()
+       and refit to the row's width by layoutFilterChips(), both in render(). -->
+  <div class="filter-strip" id="filter-strip" hidden>
+    <span class="filesearch">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
+      <input type="text" id="filter-input" placeholder="Filter files…" autocomplete="off" spellcheck="false">
+      <button type="button" class="clear" id="filter-clear" aria-label="Clear filter">×</button>
+    </span>
+    <span class="count" id="filter-count"></span>
+    <span class="chip-row" id="filter-chips"></span>
   </div>
 
   <main id="main">

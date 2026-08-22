@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A filter bar above the file list, filtering by filename substring or by extension (`*.ts` / `.ts`); extension chips are generated from the current patch and collapse into "+N more" as the window narrows.
+
 ### Changed
 
 - A build not sitting on its version's tag now marks the version `+dev` rather than `-dev`, since such a build follows the release rather than preceding it.

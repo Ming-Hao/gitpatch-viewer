@@ -112,6 +112,13 @@ function nameOf(path) {
   return path.slice(dirOf(path).length);
 }
 
+/** Lowercased extension of a filename, or null when it has none. */
+function extOf(path) {
+  const name = nameOf(path);
+  const cut = name.lastIndexOf('.');
+  return cut <= 0 ? null : name.slice(cut + 1).toLowerCase();
+}
+
 /** The path a file is filed under: its new path, or its old one once deleted. */
 function sortPath(file) {
   return file.newPath || file.oldPath || '';
@@ -390,11 +397,46 @@ const expanded = new Set();
 /** The largest single-file change in the patch, the full width of a row's bar. */
 let maxChange = 0;
 
+/**
+ * `*.ts` / `.ts` filters by suffix (so `glob.test.ts` still matches `*.ts`);
+ * anything else is a case-insensitive substring against the full path.
+ */
+function parseFilterQuery(raw) {
+  const query = raw.trim().toLowerCase();
+  if (!query) return null;
+  if (query.startsWith('*.')) return { mode: 'suffix', value: query.slice(1) };
+  if (/^\.[a-z0-9]+$/.test(query)) return { mode: 'suffix', value: query };
+  return { mode: 'substring', value: query };
+}
+
+function fileMatchesFilter(path, parsed) {
+  if (!parsed) return true;
+  const lower = path.toLowerCase();
+  return parsed.mode === 'suffix' ? lower.endsWith(parsed.value) : lower.includes(parsed.value);
+}
+
+/**
+ * The current patch's extension chips. Rebuilt by renderFilterChips() once per
+ * render() — which extensions exist doesn't change while the reader is typing
+ * into the filter — and re-measured against the row's width by
+ * layoutFilterChips(), whose resize listener is bound once in init() and reads
+ * these fresh on every call instead of closing over a stale set.
+ */
+let filterChipEls = [];
+let filterChipsExpanded = false;
+
 function render() {
   const container = document.getElementById('files');
   container.textContent = '';
 
-  if (!model) return;
+  const filterStrip = document.getElementById('filter-strip');
+
+  if (!model) {
+    filterStrip.hidden = true;
+    return;
+  }
+
+  filterStrip.hidden = false;
 
   maxChange = model.reduce((max, file) => Math.max(max, file.additions + file.deletions), 0);
 
@@ -419,6 +461,171 @@ function render() {
 
   wireGroupHover(list);
   container.appendChild(list);
+
+  renderFilterChips();
+  applyFilter();
+}
+
+/**
+ * Rebuilds the extension chip set from the current model, then lays it out.
+ * A chip click sets the filter input to `*.ext` (or clears it if that chip is
+ * already active) and re-applies the filter.
+ */
+function renderFilterChips() {
+  const counts = new Map();
+  for (const file of model) {
+    const ext = extOf(sortPath(file));
+    if (!ext) continue;
+    counts.set(ext, (counts.get(ext) || 0) + 1);
+  }
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+
+  filterChipsExpanded = false;
+  filterChipEls = sorted.map(([ext, count]) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.ext = ext;
+    chip.append(`.${ext} `, spanWith('n', String(count)));
+    chip.addEventListener('click', () => {
+      const input = document.getElementById('filter-input');
+      input.value = chip.classList.contains('is-active') ? '' : `*.${ext}`;
+      applyFilter();
+    });
+    return chip;
+  });
+
+  layoutFilterChips();
+}
+
+function filterChipMoreButton() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'chip more';
+  button.addEventListener('click', () => {
+    filterChipsExpanded = !filterChipsExpanded;
+    layoutFilterChips();
+  });
+  return button;
+}
+
+/**
+ * Fits as many extension chips as the row's current width allows onto one
+ * line, folding the rest behind "+N more" — recomputed on every resize.
+ * "Show fewer" / "+N more" is a manual override: once expanded it stays
+ * expanded regardless of width, until toggled back.
+ */
+function layoutFilterChips() {
+  const container = document.getElementById('filter-chips');
+  container.textContent = '';
+  container.classList.toggle('is-expanded', filterChipsExpanded);
+
+  if (!filterChipEls.length) return;
+
+  if (filterChipsExpanded) {
+    container.append(...filterChipEls, filterChipMoreButton());
+    container.lastChild.textContent = 'Show fewer';
+    return;
+  }
+
+  const available = container.clientWidth;
+  const gap = 6;
+
+  // Measure the "more" button at its widest plausible label so a later,
+  // shorter label never lets one extra chip sneak in and then get pushed
+  // back out again next resize.
+  const more = filterChipMoreButton();
+  more.textContent = `+${filterChipEls.length} more`;
+  container.appendChild(more);
+  const moreWidth = more.getBoundingClientRect().width;
+  container.removeChild(more);
+
+  let used = 0;
+  let shown = 0;
+  for (const chip of filterChipEls) {
+    container.appendChild(chip);
+    const width = chip.getBoundingClientRect().width;
+    const nextUsed = shown === 0 ? width : used + gap + width;
+    const remaining = filterChipEls.length - shown - 1;
+    const budget = remaining > 0 ? available - gap - moreWidth : available;
+    if (nextUsed > budget && shown > 0) {
+      container.removeChild(chip);
+      break;
+    }
+    used = nextUsed;
+    shown++;
+  }
+
+  const hiddenCount = filterChipEls.length - shown;
+  if (hiddenCount > 0) {
+    more.textContent = `+${hiddenCount} more`;
+    container.appendChild(more);
+  }
+}
+
+/**
+ * Hides file rows (and their open bodies, if any) that don't match the filter
+ * input, and updates the count and the summary's parenthetical. Runs on every
+ * keystroke, so it only toggles `hidden` — it never rebuilds rows.
+ *
+ * model[i] and the file-list's .file-row children share the same order, since
+ * only rows carry that class — an open row's body is a `.file-body` sibling,
+ * not a row of its own — so they can be walked in lockstep by index.
+ */
+function applyFilter() {
+  if (!model) return;
+
+  const list = document.querySelector('.file-list');
+  const rows = list.querySelectorAll(':scope > .file-row');
+  const parsed = parseFilterQuery(document.getElementById('filter-input').value);
+
+  let shownCount = 0;
+  let shownAdditions = 0;
+  let shownDeletions = 0;
+
+  model.forEach((file, index) => {
+    const row = rows[index];
+    const hit = fileMatchesFilter(sortPath(file), parsed);
+    row.hidden = !hit;
+    const body = row.nextElementSibling;
+    if (body && body.classList.contains('file-body')) body.hidden = !hit;
+    if (hit) {
+      shownCount++;
+      shownAdditions += file.additions;
+      shownDeletions += file.deletions;
+    }
+  });
+
+  let empty = list.querySelector('.filter-empty');
+  if (!empty) {
+    empty = document.createElement('div');
+    empty.className = 'filter-empty';
+    empty.textContent = 'No file matches this filter.';
+    list.appendChild(empty);
+  }
+  empty.hidden = shownCount > 0;
+
+  document.getElementById('filter-count').textContent = parsed
+    ? `${shownCount} / ${model.length} files`
+    : `${model.length} files`;
+
+  const note = document.getElementById('filter-summary-note');
+  if (parsed) {
+    note.textContent = '';
+    note.append(
+      `(${shownCount} shown, `,
+      spanWith('plus', `+${shownAdditions}`),
+      ' ',
+      spanWith('minus', `−${shownDeletions}`),
+      ')',
+    );
+    note.hidden = false;
+  } else {
+    note.hidden = true;
+  }
+
+  const activeExt = parsed && parsed.mode === 'suffix' ? parsed.value.replace(/^\./, '') : null;
+  for (const chip of filterChipEls) chip.classList.toggle('is-active', chip.dataset.ext === activeExt);
 }
 
 /**
@@ -895,6 +1102,7 @@ function load(text) {
   // Paths from the previous patch mean nothing in this one, and leaving them
   // would silently expand whichever files happened to share a path.
   expanded.clear();
+  document.getElementById('filter-input').value = '';
 
   // TEMPORARY: measuring where load time goes. Remove once decided.
   const t0 = performance.now();
@@ -947,6 +1155,7 @@ function reset() {
   document.getElementById('reset-btn').hidden = true;
   document.getElementById('error').hidden = true;
   document.getElementById('paste-area').value = '';
+  document.getElementById('filter-input').value = '';
   render();
   showSummary();
 }
@@ -1164,6 +1373,21 @@ function init() {
   });
 
   document.getElementById('reset-btn').addEventListener('click', reset);
+
+  document.getElementById('filter-input').addEventListener('input', applyFilter);
+
+  document.getElementById('filter-clear').addEventListener('click', () => {
+    const input = document.getElementById('filter-input');
+    input.value = '';
+    applyFilter();
+    input.focus();
+  });
+
+  // Bound once here rather than inside renderFilterChips(), which runs on
+  // every render() — a listener added there would stack a duplicate on every
+  // mode switch. layoutFilterChips() reads filterChipEls fresh each call, so
+  // a later render() swapping that set in takes effect without a new binding.
+  window.addEventListener('resize', layoutFilterChips);
 
   document.getElementById('view-toggle').addEventListener('click', (event) => {
     const button = event.target.closest('button');
