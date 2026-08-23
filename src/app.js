@@ -416,6 +416,28 @@ function fileMatchesFilter(path, parsed) {
 }
 
 /**
+ * Change kinds the reader has narrowed to, ANDed with whatever the filter
+ * input says. A Set rather than a single kind because the kinds OR each other:
+ * "added or deleted" is a question worth asking, and an empty set is what
+ * "no kind constraint" looks like without a separate flag.
+ *
+ * Deliberately kept out of the filter input's query string. That input is
+ * matched against paths; folding a second axis into it would turn
+ * parseFilterQuery() into a tokeniser for the sake of one control.
+ */
+const activeKinds = new Set();
+
+/** Kinds OR each other; an empty set constrains nothing. */
+function fileMatchesKind(file) {
+  return activeKinds.size === 0 || activeKinds.has(file.kind);
+}
+
+/** `modified` -> `Modified`, for labels built from KIND_LABEL. */
+function titleCase(text) {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
  * The current patch's extension chips. Rebuilt by renderFilterChips() once per
  * render() — which extensions exist doesn't change while the reader is typing
  * into the filter — and re-measured against the row's width by
@@ -463,6 +485,7 @@ function render() {
   container.appendChild(list);
 
   renderFilterChips();
+  renderTypeMenu();
   applyFilter();
 }
 
@@ -496,6 +519,93 @@ function renderFilterChips() {
   });
 
   layoutFilterChips();
+}
+
+/**
+ * Rebuilds the type menu from the current model. Only the kinds the patch
+ * actually contains get a row — the same rule renderFilterChips() follows for
+ * extensions — so a patch of pure edits offers one row rather than four that
+ * would each empty the list.
+ *
+ * Rows are listed in KIND_ORDER rather than encounter order, so the control
+ * reads the same way from one patch to the next.
+ *
+ * Each row binds its own listener here rather than in init(), because the rows
+ * are rebuilt on every render() and a listener bound to a row dies with it.
+ * The three that outlive a render — open, close, dismiss — are in init().
+ */
+function renderTypeMenu() {
+  const menu = document.getElementById('type-menu');
+  menu.textContent = '';
+
+  const counts = new Map();
+  for (const file of model) counts.set(file.kind, (counts.get(file.kind) || 0) + 1);
+
+  for (const kind of KIND_ORDER) {
+    if (!counts.has(kind)) continue;
+    menu.appendChild(renderTypeRow(kind, counts.get(kind)));
+  }
+
+  const separator = document.createElement('hr');
+  separator.className = 'type-sep';
+  menu.appendChild(separator);
+
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'type-reset';
+  reset.textContent = 'All types';
+  reset.addEventListener('click', () => {
+    activeKinds.clear();
+    // Cheaper than rebuilding the menu, and it leaves the open menu's scroll
+    // position and focus where the reader left them.
+    for (const box of menu.querySelectorAll('input')) box.checked = false;
+    applyFilter();
+  });
+  menu.appendChild(reset);
+}
+
+function renderTypeRow(kind, count) {
+  const row = document.createElement('label');
+  row.className = 'type-row';
+
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  // Read from the Set rather than assumed false: a mode switch re-renders the
+  // menu, and the reader's selection has to survive it.
+  box.checked = activeKinds.has(kind);
+  box.addEventListener('change', () => {
+    if (box.checked) activeKinds.add(kind);
+    else activeKinds.delete(kind);
+    applyFilter();
+  });
+
+  const dot = spanWith('type-dot', '');
+  dot.dataset.kind = kind;
+
+  row.append(box, dot, titleCase(KIND_LABEL[kind]), spanWith('n', String(count)));
+  return row;
+}
+
+/**
+ * The button reports the selection in words. Two or more kinds fall back to a
+ * count: naming them would let the label grow without bound, and the menu
+ * right below it is where that detail belongs.
+ */
+function syncTypeButton() {
+  const button = document.getElementById('type-toggle');
+  const size = activeKinds.size;
+
+  button.textContent =
+    size === 0 ? 'Type: All'
+      : size === 1 ? `Type: ${titleCase(KIND_LABEL[[...activeKinds][0]])}`
+        : `Type: ${size} selected`;
+  button.appendChild(spanWith('caret', '▾'));
+  button.classList.toggle('is-on', size > 0);
+}
+
+function setTypeMenuOpen(open) {
+  document.getElementById('type-menu').hidden = !open;
+  document.getElementById('type-toggle').setAttribute('aria-expanded', String(open));
 }
 
 function filterChipMoreButton() {
@@ -585,7 +695,7 @@ function applyFilter() {
 
   model.forEach((file, index) => {
     const row = rows[index];
-    const hit = fileMatchesFilter(sortPath(file), parsed);
+    const hit = fileMatchesKind(file) && fileMatchesFilter(sortPath(file), parsed);
     row.hidden = !hit;
     const body = row.nextElementSibling;
     if (body && body.classList.contains('file-body')) body.hidden = !hit;
@@ -605,12 +715,16 @@ function applyFilter() {
   }
   empty.hidden = shownCount > 0;
 
-  document.getElementById('filter-count').textContent = parsed
+  // Either axis narrowing the list is enough to owe the reader a "shown of
+  // total", so neither figure may be read off `parsed` alone any more.
+  const narrowed = Boolean(parsed) || activeKinds.size > 0;
+
+  document.getElementById('filter-count').textContent = narrowed
     ? `${shownCount} / ${model.length} files`
     : `${model.length} files`;
 
   const note = document.getElementById('filter-summary-note');
-  if (parsed) {
+  if (narrowed) {
     note.textContent = '';
     note.append(
       `(${shownCount} shown, `,
@@ -626,6 +740,8 @@ function applyFilter() {
 
   const activeExt = parsed && parsed.mode === 'suffix' ? parsed.value.replace(/^\./, '') : null;
   for (const chip of filterChipEls) chip.classList.toggle('is-active', chip.dataset.ext === activeExt);
+
+  syncTypeButton();
 }
 
 /**
@@ -1103,6 +1219,7 @@ function load(text) {
   // would silently expand whichever files happened to share a path.
   expanded.clear();
   document.getElementById('filter-input').value = '';
+  activeKinds.clear();
 
   // TEMPORARY: measuring where load time goes. Remove once decided.
   const t0 = performance.now();
@@ -1156,6 +1273,7 @@ function reset() {
   document.getElementById('error').hidden = true;
   document.getElementById('paste-area').value = '';
   document.getElementById('filter-input').value = '';
+  activeKinds.clear();
   render();
   showSummary();
 }
@@ -1388,6 +1506,22 @@ function init() {
   // mode switch. layoutFilterChips() reads filterChipEls fresh each call, so
   // a later render() swapping that set in takes effect without a new binding.
   window.addEventListener('resize', layoutFilterChips);
+
+  // The menu's rows bind their own listeners in renderTypeMenu(), which
+  // rebuilds them; these three outlive a render and so belong here.
+  document.getElementById('type-toggle').addEventListener('click', () => {
+    setTypeMenuOpen(document.getElementById('type-menu').hidden);
+  });
+
+  // The toggle's own click reaches this too, but the control contains it, so
+  // opening never immediately closes.
+  document.addEventListener('click', (event) => {
+    if (!document.getElementById('type-control').contains(event.target)) setTypeMenuOpen(false);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setTypeMenuOpen(false);
+  });
 
   document.getElementById('view-toggle').addEventListener('click', (event) => {
     const button = event.target.closest('button');

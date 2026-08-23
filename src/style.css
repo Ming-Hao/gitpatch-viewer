@@ -107,6 +107,18 @@
   --accent: #0969da;
   --danger: #cf222e;
 
+  /* Dots against the change kinds in the type menu. A set of their own rather
+     than borrowed from what they resemble: --accent is green on dark, where a
+     modified dot drawn from it would be indistinguishable from an added one,
+     and the --g0..--g5 rules already carry "which directory". --kind-other
+     covers the kinds with no colour of their own (copy, mode, binary), which
+     is why it is a token and not just --fg-muted at the point of use. */
+  --kind-modify: #0969da;
+  --kind-add: #116329;
+  --kind-delete: #a40e26;
+  --kind-rename: #8250df;
+  --kind-other: #4c545c;
+
   /* The +/- figures in the summary bar and in every file row. Kept apart from
      --danger because these are read through the row bar and the hover wash,
      while .error sits on a plain surface and can afford a lighter red. */
@@ -191,6 +203,15 @@
     --accent: #4ade80;
     --danger: #f85149;
 
+    /* Brightened for a near-black ground, like the group rules above. The
+       modified dot has to move furthest: the light theme's blue reads as
+       almost black here. */
+    --kind-modify: #58a6ff;
+    --kind-add: #56d364;
+    --kind-delete: #ffa198;
+    --kind-rename: #bc8cff;
+    --kind-other: #a5aeb8;
+
     --stat-plus: #56d364;
     --stat-minus: #ffa198;
 
@@ -259,6 +280,15 @@
 
   --accent: #4ade80;
   --danger: #f85149;
+
+  /* Brightened for a near-black ground, like the group rules above. The
+     modified dot has to move furthest: the light theme's blue reads as
+     almost black here. */
+  --kind-modify: #58a6ff;
+  --kind-add: #56d364;
+  --kind-delete: #ffa198;
+  --kind-rename: #bc8cff;
+  --kind-other: #a5aeb8;
 
   --stat-plus: #56d364;
   --stat-minus: #ffa198;
@@ -644,6 +674,110 @@ body {
 .filesearch .clear:hover { color: var(--fg); background: var(--bg-inset); }
 
 .filter-strip .count { font-size: 12px; color: var(--fg-muted); white-space: nowrap; }
+
+/* --- type menu ------------------------------------------------------------ */
+
+/* Anchors the popup, so no overflow clipping may appear on the chain between
+   the two. It sits ahead of the search box in the markup for a layout reason:
+   the button's label reports the selection and so changes width, and the only
+   thing to its right is the flexible input, which absorbs that growth instead
+   of being pushed along by it. */
+.typemenu { position: relative; flex: none; }
+
+/* Same shape as .chip, not .btn: this belongs to the filter strip, where
+   .btn's blue fill is tuned for the dark toolbar and would shout. */
+.typemenu > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.typemenu > button:hover { border-color: var(--fg-muted); }
+
+/* The border alone carries "a filter is on", since the label already says
+   which. A filled state here would outweigh the chips it sits beside. */
+.typemenu > button.is-on { border-color: var(--accent); }
+
+.typemenu .caret { font-size: 9px; color: var(--fg-muted); }
+
+/* Left-aligned, unlike the tooltips: the button is the first thing in the
+   strip, so a popup hung from its right edge would start off the page.
+
+   Drawn on the tooltip's surface rather than --bg, for the reason that set
+   records: on dark those two are the same colour, and a card that matches the
+   page behind it is left hanging on its border alone. */
+.typemenu .pop {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--tip-bg);
+  border: 1px solid var(--tip-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px var(--tip-shadow);
+}
+
+/* A <label>, so the whole row is the checkbox's hit area. */
+.type-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* --veil rather than --bg-inset: this row sits on the tooltip surface, which
+   on dark is lighter than --bg-inset, so an inset fill would darken the row
+   the pointer is on. The veil is a wash, so it deepens on light and lifts on
+   dark — the direction a hover wants in either theme. */
+.type-row:hover { background: var(--veil); }
+.type-row input { accent-color: var(--btn-on-bg); }
+.type-row .n { margin-left: auto; font-family: var(--mono); color: var(--fg-muted); }
+
+/* Kinds with no colour of their own (copy, mode, binary) fall through to
+   --kind-other, so an unrecognised kind still gets a dot rather than none. */
+.type-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--kind-other);
+}
+
+.type-dot[data-kind="modify"] { background: var(--kind-modify); }
+.type-dot[data-kind="add"] { background: var(--kind-add); }
+.type-dot[data-kind="delete"] { background: var(--kind-delete); }
+.type-dot[data-kind="rename"] { background: var(--kind-rename); }
+
+.type-sep { margin: 5px 2px; border: 0; border-top: 1px solid var(--border); }
+
+.type-reset {
+  width: 100%;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.type-reset:hover { background: var(--veil); }
 
 /* flex-basis 100% forces the chips onto their own line below the input, so
    how much room they get never depends on how long the typed query is.

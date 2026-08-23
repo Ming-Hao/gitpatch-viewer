@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A change-type menu at the head of the filter bar, narrowing the file list to the kinds selected (modified, added, deleted, renamed); only the kinds the current patch contains are listed, several selected kinds read as "any of these", and the selection narrows what the name filter beside it already left rather than replacing it.
+
 ## [1.2.2] - 2026-08-22
 
 ### Added

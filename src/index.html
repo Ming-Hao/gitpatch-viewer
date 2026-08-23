@@ -88,6 +88,18 @@
   <!-- Hidden alongside #summary; its chips are rebuilt by renderFilterChips()
        and refit to the row's width by layoutFilterChips(), both in render(). -->
   <div class="filter-strip" id="filter-strip" hidden>
+    <!-- The type control leads the strip so that its label, which grows and
+         shrinks with the selection, is absorbed by the flexible input beside
+         it rather than shunting the controls to its right.
+
+         Both the button's label and the menu's rows are written by
+         renderTypeMenu() and syncTypeButton(): which kinds exist is a property
+         of the patch on screen, so neither can be spelled out here. -->
+    <span class="typemenu" id="type-control">
+      <button type="button" id="type-toggle" aria-haspopup="true" aria-expanded="false"></button>
+      <div class="pop" id="type-menu" hidden></div>
+    </span>
+
     <span class="filesearch">
       <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="M11 11l3.5 3.5"/></svg>
       <input type="text" id="filter-input" placeholder="Filter files…" autocomplete="off" spellcheck="false">
