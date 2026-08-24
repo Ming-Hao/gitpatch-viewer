@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-08-24
+
 ### Added
 
 - A change-type menu at the head of the filter bar, narrowing the file list to the kinds selected (modified, added, deleted, renamed); only the kinds the current patch contains are listed, several selected kinds read as "any of these", and the selection narrows what the name filter beside it already left rather than replacing it.
@@ -79,7 +81,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Collapsible per-file sections showing the change kind and added or removed line counts.
 - Explicit notes for patches with no hunks, covering binary, rename, copy, and mode-only changes.
 
-[Unreleased]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Ming-Hao/gitpatch-viewer/compare/v1.1.0...v1.2.0
